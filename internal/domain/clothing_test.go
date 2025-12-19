@@ -13,7 +13,7 @@ func TestIsValid(t *testing.T) {
 			Store:        "Totally Real Store",
 			Size:         "Medium",
 		}
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got != nil {
 			t.Errorf("Expected no error, but got %v", got)
@@ -32,7 +32,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -58,7 +58,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -82,7 +82,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -108,7 +108,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -132,7 +132,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -158,7 +158,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -182,7 +182,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -208,7 +208,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -232,7 +232,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "Medium",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -258,7 +258,7 @@ func TestIsValid(t *testing.T) {
 			Size:         "",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")
@@ -282,7 +282,7 @@ func TestIsValid(t *testing.T) {
 			Size:         " ",
 		}
 
-		got := item.IsValidItem()
+		got := item.Validate()
 
 		if got == nil {
 			t.Error("Expected error, but got nil")

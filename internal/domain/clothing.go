@@ -15,7 +15,7 @@ type Clothing struct {
 	Size         string `json:"size"`
 }
 
-func (c Clothing) IsValidItem() error {
+func (c Clothing) Validate() error {
 	if int(c.Price) < 0 {
 		return errors.New("Clothing Price must be greater than or equal to 0")
 	}
