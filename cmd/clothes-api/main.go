@@ -1,7 +1,17 @@
 package main
 
-import "fmt"
+import (
+	"clothes_management/internal/api"
+	"fmt"
+	"log"
+	"net/http"
+)
 
 func main() {
-	fmt.Println("clothes-api running")
+	port := 8080
+	portStr := fmt.Sprintf(":%d", port)
+
+	http.HandleFunc("/clothes", api.Clothes)
+
+	log.Fatal(http.ListenAndServe(portStr, nil))
 }
