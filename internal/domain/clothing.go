@@ -6,6 +6,7 @@ import (
 )
 
 type Clothing struct {
+	Id           string `json:"id"`
 	ClothingType string `json:"clothingType"`
 	Description  string `json:"description"`
 	Brand        string `json:"brand"`

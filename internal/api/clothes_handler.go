@@ -3,13 +3,19 @@ package api
 import (
 	"bytes"
 	"clothes_management/internal/domain"
+	"clothes_management/internal/repository"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 )
 
-func clothes_post(w http.ResponseWriter, r *http.Request) {
+type API struct {
+	Repo repository.ClothingRepository
+}
+
+func (a *API) clothes_post(w http.ResponseWriter, r *http.Request) {
 	if r.Body == nil || r.Body == http.NoBody {
 		http.Error(w, "Request body must not be empty or missing", http.StatusBadRequest)
 		return
@@ -87,8 +93,15 @@ func clothes_post(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// will later add logic to save the clothing item/further process it
-	resp := map[string]any{"success": true}
+	clothing, err = a.Repo.Save(clothing)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, "Error saving clothing item", http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]any{"success": true, "data": clothing}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
@@ -96,21 +109,33 @@ func clothes_post(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func clothes_get(w http.ResponseWriter) {
-	http.Error(w, "Not Implemented", http.StatusNotImplemented)
+func (a *API) clothes_get(w http.ResponseWriter) {
+	clothingItems, err := a.Repo.GetAll()
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, "Error getting clothing items", http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]any{"success": true, "data": clothingItems}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(resp)
 }
 
-func Clothes(w http.ResponseWriter, r *http.Request) {
+func (a *API) Clothes(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, fmt.Sprintf("Unauthorised method %s. The supported methods are POST or GET.", r.Method), http.StatusMethodNotAllowed)
 		return
 	}
 
 	if r.Method == http.MethodPost {
-		clothes_post(w, r)
+		a.clothes_post(w, r)
 		return
 	} else {
-		clothes_get(w)
+		a.clothes_get(w)
 		return
 	}
 
