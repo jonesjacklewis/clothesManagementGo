@@ -25,7 +25,7 @@ func TestNewInMemoryClothingRepository(t *testing.T) {
 	})
 }
 
-func TestSave(t *testing.T) {
+func TestInMemorySave(t *testing.T) {
 	t.Run("Given invalid clothing, should return error", func(t *testing.T) {
 		repo := NewInMemoryClothingRepository()
 
@@ -111,7 +111,7 @@ func TestSave(t *testing.T) {
 	})
 }
 
-func TestGetAll(t *testing.T) {
+func TestInMemoryGetAll(t *testing.T) {
 	t.Run("When there are no clothing items, GetAll should return an empty list and no errors", func(t *testing.T) {
 		repo := NewInMemoryClothingRepository()
 
@@ -308,7 +308,7 @@ func TestSaveAndGetAll(t *testing.T) {
 	})
 }
 
-func TestConcurrentSaves(t *testing.T) {
+func TestInMemoryConcurrentSaves(t *testing.T) {
 	t.Run("Given multiple goroutines concurrently save items, all items should be saved correctly", func(t *testing.T) {
 		repo := NewInMemoryClothingRepository()
 
@@ -365,7 +365,7 @@ func TestConcurrentSaves(t *testing.T) {
 	})
 }
 
-func TestConcurrentGetAll(t *testing.T) {
+func TestInMemoryConcurrentGetAll(t *testing.T) {
 	t.Run("Given multiple goroutines concurrently retrieve items, all retrievals should be consistent and error-free", func(t *testing.T) {
 		repo := NewInMemoryClothingRepository()
 

@@ -32,3 +32,48 @@ This will serve as a simple clothes management API built with Go.
    1. If the clothing tye or brand does not exist in the global list, it is added.
 3. User can view, update, or delete their clothes items.
 4. Users can get certain statistics about their clothes (e.g., total number of items, average price, etc.).
+
+# LocalStack
+
+- Used for testing DynamoDBClothingRepository
+- Start localstack
+
+```bash
+docker run --rm -it -p 4566:4566 -p 4510-4559:4510-4559 \
+    -e SERVICES=dynamodb -e DEBUG=1 \
+    --name localstack_main localstack/localstack:latest
+  ```
+
+- Configure AWS
+
+```bash
+aws configure
+# AWS Access Key ID [****************test]: test
+# AWS Secret Access Key [****************test]: test
+# Default region name [eu-west-1]: eu-west-1
+# Default output format [json]: json
+```
+
+- Create table
+
+```bash
+aws dynamodb create-table \
+    --table-name MyClothesTable \
+    --attribute-definitions \
+        AttributeName=Id,AttributeType=S \
+    --key-schema \
+        AttributeName=Id,KeyType=HASH \
+    --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
+    --endpoint-url http://localhost:4566 \
+    --region eu-west-1
+```
+
+- Create .env_test file like
+
+```
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+AWS_REGION=eu-west-1
+DYNAMODB_TABLE_NAME=MyClothesTable
+BASE_ENDPOINT=http://localhost:4566
+```
