@@ -45,6 +45,7 @@ func (d *DynamoDBClothingRepository) Save(clothing domain.Clothing) (domain.Clot
 
 	item, err := attributevalue.MarshalMap(clothing)
 
+	// this shouldn't ever be possible, but as a guard. As a result, will not unit test.
 	if err != nil {
 		return domain.Clothing{}, fmt.Errorf("failed to marshal clothing item for DynamoDB: %w", err)
 	}
@@ -85,6 +86,7 @@ func (d *DynamoDBClothingRepository) GetAll() ([]domain.Clothing, error) {
 		err = attributevalue.UnmarshalListOfMaps(output.Items, &clothesPage)
 
 		if err != nil {
+			// this shouldn't ever be possible, but as a guard. As a result, will not unit test.
 			return nil, fmt.Errorf("failed to unmarshal DynamoDB items from scan result: %w", err)
 		}
 
@@ -98,4 +100,80 @@ func (d *DynamoDBClothingRepository) GetAll() ([]domain.Clothing, error) {
 	}
 
 	return allClothes, nil
+}
+
+func (d *DynamoDBClothingRepository) GetById(id string) (domain.Clothing, error) {
+
+	getItemInput := &dynamodb.GetItemInput{
+		TableName: &d.tableName,
+		Key: map[string]types.AttributeValue{
+			"Id": &types.AttributeValueMemberS{
+				Value: id,
+			},
+		},
+	}
+
+	getItemOutput, err := d.client.GetItem(context.TODO(), getItemInput)
+
+	if err != nil {
+		return domain.Clothing{}, fmt.Errorf("Failed to GetItem for id %s %v", id, err)
+	}
+
+	var item domain.Clothing
+
+	if len(getItemOutput.Item) == 0 {
+		return domain.Clothing{}, fmt.Errorf("No item found for id %s", id)
+	}
+
+	attributevalue.UnmarshalMap(getItemOutput.Item, &item)
+
+	return item, nil
+}
+
+func (d *DynamoDBClothingRepository) Update(clothing domain.Clothing) (domain.Clothing, error) {
+	if err := clothing.Validate(); err != nil {
+		return domain.Clothing{}, err
+	}
+
+	if clothing.Id == "" {
+		return domain.Clothing{}, fmt.Errorf("cannot update clothing without ID")
+	}
+
+	item, err := attributevalue.MarshalMap(clothing)
+
+	// this shouldn't ever be possible, but as a guard. As a result, will not unit test.
+	if err != nil {
+		return domain.Clothing{}, fmt.Errorf("failed to marshal clothing item for DynamoDB: %w", err)
+	}
+
+	putItemInput := &dynamodb.PutItemInput{
+		TableName: aws.String(d.tableName),
+		Item:      item,
+	}
+
+	_, err = d.client.PutItem(context.TODO(), putItemInput)
+	if err != nil {
+		return domain.Clothing{}, fmt.Errorf("failed to update item into DynamoDB: %w", err)
+	}
+
+	return clothing, nil
+}
+
+func (d *DynamoDBClothingRepository) Delete(id string) error {
+	deleteItemInput := &dynamodb.DeleteItemInput{
+		TableName: &d.tableName,
+		Key: map[string]types.AttributeValue{
+			"Id": &types.AttributeValueMemberS{
+				Value: id,
+			},
+		},
+	}
+
+	_, err := d.client.DeleteItem(context.TODO(), deleteItemInput)
+
+	if err != nil {
+		return fmt.Errorf("Failed to DeleteItem for id %s %v", id, err)
+	}
+
+	return nil
 }

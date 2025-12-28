@@ -18,6 +18,14 @@ type DummyClothingRepo struct {
 	NextId           string
 	AllItems         []domain.Clothing
 	GetAllError      error
+	GetByIdItem      *domain.Clothing
+	GetByIdError     error
+	GetByIdCalledId  string
+	UpdateError      error
+	UpdatedClothing  *domain.Clothing
+	UpdateReturnItem *domain.Clothing
+	DeleteError      error
+	DeletedID        string
 }
 
 func (d *DummyClothingRepo) Save(clothing domain.Clothing) (domain.Clothing, error) {
@@ -48,6 +56,43 @@ func (d *DummyClothingRepo) GetAll() ([]domain.Clothing, error) {
 	}
 
 	return items, nil
+}
+
+func (d *DummyClothingRepo) GetById(id string) (domain.Clothing, error) {
+	d.GetByIdCalledId = id
+
+	if d.GetByIdError != nil {
+		return domain.Clothing{}, d.GetByIdError
+	}
+	if d.GetByIdItem == nil {
+		return domain.Clothing{}, fmt.Errorf("item with id %s not found (dummy)", id)
+	}
+	itemCopy := *d.GetByIdItem
+	return itemCopy, nil
+}
+
+func (d *DummyClothingRepo) Update(clothing domain.Clothing) (domain.Clothing, error) {
+	d.UpdatedClothing = &clothing
+	if d.UpdateError != nil {
+		return domain.Clothing{}, d.UpdateError
+	}
+
+	if d.UpdateReturnItem != nil {
+		itemCopy := *d.UpdateReturnItem
+		return itemCopy, nil
+	}
+
+	itemCopy := clothing
+	return itemCopy, nil
+}
+
+func (d *DummyClothingRepo) Delete(id string) error {
+	d.DeletedID = id
+
+	if d.DeleteError != nil {
+		return d.DeleteError
+	}
+	return nil
 }
 
 func TestClothes(t *testing.T) {

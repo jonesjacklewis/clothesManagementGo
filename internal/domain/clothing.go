@@ -6,14 +6,14 @@ import (
 )
 
 type Clothing struct {
-	Id           string `json:"id"`
-	ClothingType string `json:"clothingType"`
-	Description  string `json:"description"`
-	Brand        string `json:"brand"`
-	Store        string `json:"store"`
-	ImageUrl     string `json:"imageUrl"`
-	Price        Pence  `json:"pricePence"`
-	Size         string `json:"size"`
+	Id           string `json:"id" dynamodbav:"Id"`
+	ClothingType string `json:"clothingType" dynamodbav:"ClothingType"`
+	Description  string `json:"description" dynamodbav:"Description"`
+	Brand        string `json:"brand" dynamodbav:"Brand"`
+	Store        string `json:"store" dynamodbav:"Store"`
+	ImageUrl     string `json:"imageUrl" dynamodbav:"ImageUrl"`
+	Price        Pence  `json:"pricePence" dynamodbav:"PricePence"`
+	Size         string `json:"size" dynamodbav:"Size"`
 }
 
 func (c Clothing) Validate() error {
