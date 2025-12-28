@@ -95,18 +95,18 @@ func (d *DummyClothingRepo) Delete(id string) error {
 	return nil
 }
 
-func TestClothes(t *testing.T) {
-	t.Run("Given request doesn't use POST or GET, should return error", func(t *testing.T) {
+func TestCreateClothing(t *testing.T) {
+	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodDelete, "/clothes", nil)
+		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -114,7 +114,7 @@ func TestClothes(t *testing.T) {
 			t.Errorf("Expected a %d error, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
 		}
 
-		expectedMessage := fmt.Sprintf("Unauthorised method %s. The supported methods are POST or GET.", http.MethodDelete)
+		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
@@ -131,7 +131,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -155,7 +155,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -192,7 +192,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -229,7 +229,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -266,7 +266,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -303,7 +303,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -340,7 +340,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -377,7 +377,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -416,7 +416,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -454,7 +454,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -494,7 +494,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -535,7 +535,7 @@ func TestClothes(t *testing.T) {
 		apiHandler := &API{
 			Repo: dummyRepo,
 		}
-		apiHandler.Clothes(w, r)
+		apiHandler.CreateClothing(w, r)
 
 		resp := w.Result()
 
@@ -576,6 +576,34 @@ func TestClothes(t *testing.T) {
 		}
 
 	})
+}
+
+func TestGetClothing(t *testing.T) {
+
+	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected a %d error, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
 
 	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -588,7 +616,7 @@ func TestClothes(t *testing.T) {
 			Repo: dummyRepo,
 		}
 
-		apiHandler.Clothes(w, r)
+		apiHandler.GetClothing(w, r)
 
 		resp := w.Result()
 
@@ -619,7 +647,7 @@ func TestClothes(t *testing.T) {
 			Repo: dummyRepo,
 		}
 
-		apiHandler.Clothes(w, r)
+		apiHandler.GetClothing(w, r)
 
 		resp := w.Result()
 
@@ -647,5 +675,4 @@ func TestClothes(t *testing.T) {
 			t.Errorf("Expected %d items, got %d", len(expectedItems), len(data))
 		}
 	})
-
 }

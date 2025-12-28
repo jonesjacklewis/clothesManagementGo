@@ -9,11 +9,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 )
 
@@ -64,7 +66,22 @@ func main() {
 		Repo: repo,
 	}
 
-	http.HandleFunc("/clothes", apiHandler.Clothes)
+	router := mux.NewRouter()
 
-	log.Fatal(http.ListenAndServe(portStr, nil))
+	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
+	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
+
+	srv := &http.Server{
+		Addr:         portStr,
+		Handler:      router,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  10 * time.Second,
+	}
+
+	log.Printf("INFO: Server starting on port %d...", port)
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("ERROR: HTTP server failed: %v", err)
+	}
+	log.Println("INFO: Server gracefully stopped.")
 }

@@ -15,7 +15,12 @@ type API struct {
 	Repo repository.ClothingRepository
 }
 
-func (a *API) clothes_post(w http.ResponseWriter, r *http.Request) {
+func (a *API) CreateClothing(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprintf("Unauthorised method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
 	if r.Body == nil || r.Body == http.NoBody {
 		http.Error(w, "Request body must not be empty or missing", http.StatusBadRequest)
 		return
@@ -109,7 +114,13 @@ func (a *API) clothes_post(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (a *API) clothes_get(w http.ResponseWriter) {
+func (a *API) GetClothing(w http.ResponseWriter, r *http.Request) {
+
+	if r.Method != http.MethodGet {
+		http.Error(w, fmt.Sprintf("Unauthorised method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
 	clothingItems, err := a.Repo.GetAll()
 
 	if err != nil {
@@ -123,20 +134,4 @@ func (a *API) clothes_get(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(resp)
-}
-
-func (a *API) Clothes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		http.Error(w, fmt.Sprintf("Unauthorised method %s. The supported methods are POST or GET.", r.Method), http.StatusMethodNotAllowed)
-		return
-	}
-
-	if r.Method == http.MethodPost {
-		a.clothes_post(w, r)
-		return
-	} else {
-		a.clothes_get(w)
-		return
-	}
-
 }
