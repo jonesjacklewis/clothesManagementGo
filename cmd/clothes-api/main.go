@@ -70,6 +70,7 @@ func main() {
 
 	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
 	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
+	router.HandleFunc("/clothes/{id}", apiHandler.GetClothingById).Methods(http.MethodGet)
 
 	srv := &http.Server{
 		Addr:         portStr,

@@ -10,6 +10,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/gorilla/mux"
 )
 
 type DummyClothingRepo struct {
@@ -673,6 +675,167 @@ func TestGetClothing(t *testing.T) {
 
 		if len(data) != len(expectedItems) {
 			t.Errorf("Expected %d items, got %d", len(expectedItems), len(data))
+		}
+	})
+}
+
+func TestGetClothingById(t *testing.T) {
+
+	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodTrace, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected a %d error, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given missing id, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodGet, "/clothes/", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Missing 'id' parameter"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given empty or whitespace id, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodGet, "/clothes/", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": ""})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Missing 'id' parameter"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		dummyRepo := &DummyClothingRepo{
+			GetByIdError: errors.New("Some Type of Error"),
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("Expeted %d got %d", http.StatusInternalServerError, resp.StatusCode)
+		}
+
+		expected := "Unable to get clothing for ID legit-id"
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+
+	})
+
+	t.Run("Given GET request, with no issues with retrieval, should not return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		item := domain.Clothing{
+			Id:           "legit-id",
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		dummyRepo := &DummyClothingRepo{
+			GetByIdItem:     &item,
+			GetByIdCalledId: "legit-id",
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expeted %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		var responseBody map[string]any
+		err := json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v", err)
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		data, ok := responseBody["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
+		}
+
+		if data["id"] != "legit-id" {
+			t.Errorf("Expected returned ID legit-id, got %v", data["id"])
 		}
 	})
 }

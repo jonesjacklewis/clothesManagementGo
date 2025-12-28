@@ -9,6 +9,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 type API struct {
@@ -130,6 +133,42 @@ func (a *API) GetClothing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := map[string]any{"success": true, "data": clothingItems}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (a *API) GetClothingById(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, fmt.Sprintf("Unauthorised method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, exists := vars["id"]
+
+	if !exists {
+		http.Error(w, "Missing 'id' parameter", http.StatusBadRequest)
+		return
+	}
+
+	id = strings.TrimSpace(id)
+
+	if len(id) == 0 {
+		http.Error(w, "Missing 'id' parameter", http.StatusBadRequest)
+		return
+	}
+
+	item, err := a.Repo.GetById(id)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprintf("Unable to get clothing for ID %s", id), http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]any{"success": true, "data": item}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
