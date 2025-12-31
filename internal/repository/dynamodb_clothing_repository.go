@@ -160,6 +160,11 @@ func (d *DynamoDBClothingRepository) Update(clothing domain.Clothing) (domain.Cl
 }
 
 func (d *DynamoDBClothingRepository) Delete(id string) error {
+
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("ID cannot be empty or whitespace")
+	}
+
 	deleteItemInput := &dynamodb.DeleteItemInput{
 		TableName: &d.tableName,
 		Key: map[string]types.AttributeValue{
