@@ -897,7 +897,7 @@ func TestDynamoDelete(t *testing.T) {
 		}
 	})
 
-	t.Run("Given table exists, should return no error", func(t *testing.T) {
+	t.Run("When ID does not exist, should return an error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
 		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
@@ -915,100 +915,87 @@ func TestDynamoDelete(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		err = repo.Delete("dummy-id-123")
+		dummyId := "dummy-id-123"
 
-		if err != nil {
-			t.Fatal("Expected no error")
+		err = repo.Delete(dummyId)
+
+		if err == nil {
+			t.Fatalf("Expected an error")
+		}
+
+		expectedMessage := fmt.Sprintf("Item with id %s does not exist", dummyId)
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
 		}
 
 	})
 
-	// t.Run("When ID does not exist, should return an error", func(t *testing.T) {
-	// 	repo := NewInMemoryClothingRepository()
+	t.Run("When ID does exist, should delete succesfully", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
 
-	// 	if repo == nil {
-	// 		t.Fatal("repo should not be null")
-	// 	}
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
 
-	// 	if repo.items == nil {
-	// 		t.Fatal("repo.items should not be null")
-	// 	}
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
 
-	// 	if len(repo.items) != 0 {
-	// 		t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
-	// 	}
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
 
-	// 	dummyId := "dummy-id-123"
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
 
-	// 	err := repo.Delete(dummyId)
+		item := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
 
-	// 	if err == nil {
-	// 		t.Fatalf("Expected an error")
-	// 	}
+		saved, err := repo.Save(item)
+		if err != nil {
+			t.Fatalf("Expected no error saving item, got %v", err)
+		}
+		if saved.Id == "" {
+			t.Fatal("Expected saved item to have an ID")
+		}
 
-	// 	expectedMessage := fmt.Sprintf("Item with id %s does not exist", dummyId)
+		items, err := repo.GetAll()
 
-	// 	if err.Error() != expectedMessage {
-	// 		t.Errorf("Expected %s got %s", expectedMessage, err.Error())
-	// 	}
+		if err != nil {
+			t.Fatalf("Expected no error getting items after save, got %v", err)
+		}
 
-	// })
+		itemCountPostSave := len(items)
 
-	// t.Run("When ID exists, should delete successfully", func(t *testing.T) {
-	// 	repo := NewInMemoryClothingRepository()
+		err = repo.Delete(saved.Id)
 
-	// 	if repo == nil {
-	// 		t.Fatal("repo should not be null")
-	// 	}
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
 
-	// 	if repo.items == nil {
-	// 		t.Fatal("repo.items should not be null")
-	// 	}
+		items, err = repo.GetAll()
 
-	// 	if len(repo.items) != 0 {
-	// 		t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
-	// 	}
+		if err != nil {
+			t.Fatalf("Expected no error getting items after delete, got %v", err)
+		}
 
-	// 	item := domain.Clothing{
-	// 		ClothingType: "Jumper",
-	// 		Description:  "This Jumper",
-	// 		Store:        "This Store",
-	// 		Size:         "L",
-	// 		Brand:        "XYZ",
-	// 		Price:        2000,
-	// 	}
+		itemCountPostDelete := len(items)
 
-	// 	item, err := repo.Save(item)
+		if itemCountPostDelete != itemCountPostSave-1 {
+			t.Errorf("Post Save Count = %d, Post Delete Count = %d, Expected Post Delete Count = %d", itemCountPostSave, itemCountPostDelete, itemCountPostSave-1)
+		}
 
-	// 	if err != nil {
-	// 		t.Fatalf("Expected no error %v", err)
-	// 	}
-
-	// 	items, err := repo.GetAll()
-
-	// 	if err != nil {
-	// 		t.Fatalf("Expected no error %v", err)
-	// 	}
-
-	// 	itemCount := len(items)
-
-	// 	err = repo.Delete(item.Id)
-
-	// 	if err != nil {
-	// 		t.Fatalf("Expected no error %v", err)
-	// 	}
-
-	// 	items, err = repo.GetAll()
-
-	// 	if err != nil {
-	// 		t.Fatalf("Expected no error %v", err)
-	// 	}
-
-	// 	if len(items) != itemCount-1 {
-	// 		t.Errorf("Expected %d got %d", itemCount-1, len(items))
-	// 	}
-
-	// })
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+	})
 
 }
 

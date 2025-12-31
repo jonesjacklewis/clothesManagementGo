@@ -165,6 +165,16 @@ func (d *DynamoDBClothingRepository) Delete(id string) error {
 		return fmt.Errorf("ID cannot be empty or whitespace")
 	}
 
+	exists, err := d.Exists(id)
+
+	if err != nil {
+		return fmt.Errorf("Failed to DeleteItem for id %s %v", id, err)
+	}
+
+	if !exists {
+		return fmt.Errorf("Item with id %s does not exist", id)
+	}
+
 	deleteItemInput := &dynamodb.DeleteItemInput{
 		TableName: &d.tableName,
 		Key: map[string]types.AttributeValue{
@@ -174,7 +184,7 @@ func (d *DynamoDBClothingRepository) Delete(id string) error {
 		},
 	}
 
-	_, err := d.client.DeleteItem(context.TODO(), deleteItemInput)
+	_, err = d.client.DeleteItem(context.TODO(), deleteItemInput)
 
 	if err != nil {
 		return fmt.Errorf("Failed to DeleteItem for id %s %v", id, err)
