@@ -824,6 +824,151 @@ func TestDynamoUpdate(t *testing.T) {
 
 }
 
+func TestDynamoExists(t *testing.T) {
+	t.Run("Given empty or whitespace ID, should return false and an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		id := ""
+
+		exists, err := repo.Exists(id)
+
+		if exists {
+			t.Error("Expected exists = false")
+		}
+		if err == nil {
+			t.Fatal("Expected to get an error")
+		}
+
+		expectedMessage := "ID cannot be empty or whitespace"
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
+	})
+
+	t.Run("Given table doesn't exist, should return false and an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, false)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		dynamoTableName = dynamoTableName + uuid.New().String()
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		exists, err := repo.Exists("dummy-id-123")
+
+		if exists {
+			t.Error("Expected exists = false")
+		}
+		if err == nil {
+			t.Fatal("Expected an error")
+		}
+
+		expectedMessage := "failed to check existence for id"
+		if !strings.Contains(err.Error(), expectedMessage) {
+			t.Errorf("Expected error to contain %q, got %q", expectedMessage, err.Error())
+		}
+	})
+
+	t.Run("Given item does not exist, should return false and no error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		exists, err := repo.Exists("does-not-exist")
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if exists {
+			t.Error("Expected exists = false")
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+	})
+
+	t.Run("Given item exists, should return true and no error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		item := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		saved, err := repo.Save(item)
+		if err != nil {
+			t.Fatalf("Expected no error saving item, got %v", err)
+		}
+		if saved.Id == "" {
+			t.Fatal("Expected saved item to have an ID")
+		}
+
+		exists, err := repo.Exists(saved.Id)
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if !exists {
+			t.Error("Expected exists = true")
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+	})
+}
+
 func TestDynamoConcurrentSaves(t *testing.T) {
 	t.Run("Given multiple goroutines concurrently save items, all items should be saved correctly", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)

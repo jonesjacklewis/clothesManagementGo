@@ -29,6 +29,8 @@ type DummyClothingRepo struct {
 	UpdateReturnItem *domain.Clothing
 	DeleteError      error
 	DeletedID        string
+	ExistsError      error
+	ShouldExist      bool
 }
 
 func (d *DummyClothingRepo) Save(clothing domain.Clothing) (domain.Clothing, error) {
@@ -96,6 +98,13 @@ func (d *DummyClothingRepo) Delete(id string) error {
 		return d.DeleteError
 	}
 	return nil
+}
+
+func (d *DummyClothingRepo) Exists(id string) (bool, error) {
+	if d.ExistsError != nil {
+		return false, d.ExistsError
+	}
+	return d.ShouldExist, nil
 }
 
 func TestMissingMandatoryClothingField(t *testing.T) {

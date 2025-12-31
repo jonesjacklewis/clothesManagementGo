@@ -556,6 +556,79 @@ func TestInMemoryDelete(t *testing.T) {
 
 }
 
+func TestInMemoryExists(t *testing.T) {
+	t.Run("When the item doesn't exist Exists should return false and no error", func(t *testing.T) {
+		repo := NewInMemoryClothingRepository()
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		if repo.items == nil {
+			t.Fatal("repo.items should not be null")
+		}
+
+		if len(repo.items) != 0 {
+			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
+		}
+
+		exists, err := repo.Exists("test-123")
+
+		if err != nil {
+			t.Errorf("Expected no error")
+		}
+
+		if exists {
+			t.Errorf("Expected exists == false")
+		}
+
+	})
+
+	t.Run("When the item does exist Exists should return true and no error", func(t *testing.T) {
+		repo := NewInMemoryClothingRepository()
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		if repo.items == nil {
+			t.Fatal("repo.items should not be null")
+		}
+
+		if len(repo.items) != 0 {
+			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
+		}
+
+		repo.mu.Lock()
+
+		dummyId := "dummy-id-123"
+
+		repo.items[dummyId] = domain.Clothing{
+			Id:           dummyId,
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		repo.mu.Unlock()
+
+		exists, err := repo.Exists(dummyId)
+
+		if err != nil {
+			t.Errorf("Expected no error")
+		}
+
+		if !exists {
+			t.Errorf("Expected exists == true")
+		}
+
+	})
+
+}
+
 func TestSaveAndGetAll(t *testing.T) {
 	t.Run("When items are saved, GetAll should show that a new item has been added", func(t *testing.T) {
 		repo := NewInMemoryClothingRepository()

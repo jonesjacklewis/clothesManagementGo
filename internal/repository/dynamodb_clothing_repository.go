@@ -177,3 +177,25 @@ func (d *DynamoDBClothingRepository) Delete(id string) error {
 
 	return nil
 }
+
+func (d *DynamoDBClothingRepository) Exists(id string) (bool, error) {
+	if strings.TrimSpace(id) == "" {
+		return false, fmt.Errorf("ID cannot be empty or whitespace")
+	}
+
+	input := &dynamodb.GetItemInput{
+		TableName: aws.String(d.tableName),
+		Key: map[string]types.AttributeValue{
+			"Id": &types.AttributeValueMemberS{Value: id},
+		},
+		// Only fetch the key back
+		ProjectionExpression: aws.String("Id"),
+	}
+
+	out, err := d.client.GetItem(context.TODO(), input)
+	if err != nil {
+		return false, fmt.Errorf("failed to check existence for id %s: %w", id, err)
+	}
+
+	return len(out.Item) != 0, nil
+}

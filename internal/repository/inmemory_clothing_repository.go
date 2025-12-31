@@ -97,6 +97,15 @@ func (r *InMemoryClothingRepository) Delete(id string) error {
 	return nil
 }
 
+func (r *InMemoryClothingRepository) Exists(id string) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	_, exists := r.items[id]
+
+	return exists, nil
+}
+
 func NewInMemoryClothingRepository() *InMemoryClothingRepository {
 	return &InMemoryClothingRepository{
 		items: make(map[string]domain.Clothing),
