@@ -77,6 +77,83 @@ func (a *API) SignUp(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *API) Login(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, fmt.Sprintf("Unsupported method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	if r.Body == nil || r.Body == http.NoBody {
+		http.Error(w, "Request body must not be empty or missing", http.StatusBadRequest)
+		return
+	}
+
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON request body", http.StatusBadRequest)
+		return
+	}
+
+	isValidEmail := validateEmail(req.Email)
+
+	if !isValidEmail {
+		http.Error(w, "Email is not valid", http.StatusBadRequest)
+		return
+	}
+
+	isValidPassword := validatePassword(req.Password)
+
+	if !isValidPassword {
+		http.Error(w, "Password is not valid", http.StatusBadRequest)
+		return
+	}
+
+	initiateAuthInput := &cognitoidentityprovider.InitiateAuthInput{
+		AuthFlow: types.AuthFlowTypeUserPasswordAuth,
+		ClientId: aws.String(a.CognitoAppClientID),
+		AuthParameters: map[string]string{
+			"USERNAME": req.Email,
+			"PASSWORD": req.Password,
+		},
+	}
+
+	result, err := a.CognitoClient.InitiateAuth(context.TODO(), initiateAuthInput)
+	if err != nil {
+		log.Printf("ERROR: Cognito Login failed for user %s: %v", req.Email, err)
+		var notAuthErr *types.NotAuthorizedException
+		var userNotFoundErr *types.UserNotFoundException
+		var userNotConfirmedErr *types.UserNotConfirmedException
+
+		if errors.As(err, &notAuthErr) {
+			http.Error(w, "Incorrect email or password", http.StatusUnauthorized)
+		} else if errors.As(err, &userNotFoundErr) {
+			log.Printf("User %s not found", req.Email)
+			http.Error(w, "Failed to login user", http.StatusInternalServerError)
+		} else if errors.As(err, &userNotConfirmedErr) {
+			http.Error(w, "User account is not confirmed by an administrator", http.StatusForbidden)
+		} else {
+			http.Error(w, "Failed to login user", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if result.AuthenticationResult == nil {
+		log.Printf("WARN: Cognito InitiateAuth did not return AuthenticationResult for user %s. Possible MFA challenge or other flow.", req.Email)
+		http.Error(w, "Authentication flow requires additional steps (e.g., MFA) which are not yet implemented.", http.StatusForbidden)
+		return
+	}
+
+	resp := LoginResponse{
+		AccessToken:  *result.AuthenticationResult.AccessToken,
+		IdToken:      *result.AuthenticationResult.IdToken,
+		RefreshToken: *result.AuthenticationResult.RefreshToken,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
 func validateEmail(email string) bool {
 
 	trimmedEmail := strings.TrimSpace(email)

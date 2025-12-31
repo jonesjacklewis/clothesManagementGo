@@ -85,6 +85,7 @@ func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/signup", apiHandler.SignUp).Methods(http.MethodPost)
+	router.HandleFunc("/login", apiHandler.Login).Methods(http.MethodPost)
 
 	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
 	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)

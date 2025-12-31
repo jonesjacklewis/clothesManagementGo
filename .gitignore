@@ -34,3 +34,4 @@ go.work.sum
 main.py
 go_files_documentation.md
 .env_test
+temp.*
