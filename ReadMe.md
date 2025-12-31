@@ -80,3 +80,6 @@ COGNITO_USER_POOL_ID=eu-west-1_test
 COGNITO_APP_CLIENT_ID=test
 ```
 
+# Note
+
+This project was developed with the assistance of AI tools for planning, code review, and guidance. The majority of the implementation was written by me, with AI used primarily for feedback and review. A larger proportion of AI-generated code was used in the authentication layer due to its complexity and security sensitivity.

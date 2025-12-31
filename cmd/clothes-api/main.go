@@ -64,6 +64,8 @@ func main() {
 		log.Fatal("ERROR: COGNITO_APP_CLIENT_ID environment variable not set. Please set it in .env or your shell.")
 	}
 
+	jwksUrl := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s/.well-known/jwks.json", awsRegion, cognitoUserPoolId)
+
 	cognitoClient := cognitoidentityprovider.NewFromConfig(cfg)
 
 	port := 8080
@@ -82,16 +84,27 @@ func main() {
 		CognitoUserPoolID:  cognitoUserPoolId,
 	}
 
+	authMiddleware, err := api.NewAuthMiddleware(cognitoAppClientId, cognitoUserPoolId, jwksUrl)
+
+	if err != nil {
+		log.Fatalf("ERROR: Failed to create AuthMiddleware: %v", err)
+	}
+
 	router := mux.NewRouter()
+
+	router.StrictSlash(true)
 
 	router.HandleFunc("/signup", apiHandler.SignUp).Methods(http.MethodPost)
 	router.HandleFunc("/login", apiHandler.Login).Methods(http.MethodPost)
 
-	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
-	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
-	router.HandleFunc("/clothes/{id}", apiHandler.GetClothingById).Methods(http.MethodGet)
-	router.HandleFunc("/clothes/{id}", apiHandler.UpdateClothing).Methods(http.MethodPost, http.MethodPut, http.MethodPatch)
-	router.HandleFunc("/clothes/{id}", apiHandler.DeleteClothing).Methods(http.MethodDelete)
+	protectedRouter := router.PathPrefix("/clothes").Subrouter()
+	protectedRouter.Use(authMiddleware.Authenticate)
+
+	protectedRouter.HandleFunc("", apiHandler.GetClothing).Methods(http.MethodGet)
+	protectedRouter.HandleFunc("", apiHandler.CreateClothing).Methods(http.MethodPost)
+	protectedRouter.HandleFunc("/{id}", apiHandler.GetClothingById).Methods(http.MethodGet)
+	protectedRouter.HandleFunc("/{id}", apiHandler.UpdateClothing).Methods(http.MethodPost, http.MethodPut, http.MethodPatch)
+	protectedRouter.HandleFunc("/{id}", apiHandler.DeleteClothing).Methods(http.MethodDelete)
 
 	srv := &http.Server{
 		Addr:         portStr,
