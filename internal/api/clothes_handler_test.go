@@ -731,6 +731,7 @@ func TestGetClothingById(t *testing.T) {
 
 		dummyRepo := &DummyClothingRepo{
 			GetByIdError: errors.New("Some Type of Error"),
+			ShouldExist:  true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,
@@ -752,7 +753,35 @@ func TestGetClothingById(t *testing.T) {
 
 	})
 
-	t.Run("Given GET request, with no issues with retrieval, should not return error", func(t *testing.T) {
+	t.Run("Given GET request, with no issues with retrieval and item does not exists, should  return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		dummyRepo := &DummyClothingRepo{
+			ShouldExist: false,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID legit-id"
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+	})
+
+	t.Run("Given GET request, with no issues with retrieval and item exists, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
@@ -771,6 +800,7 @@ func TestGetClothingById(t *testing.T) {
 		dummyRepo := &DummyClothingRepo{
 			GetByIdItem:     &item,
 			GetByIdCalledId: "legit-id",
+			ShouldExist:     true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,

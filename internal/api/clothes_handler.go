@@ -126,6 +126,19 @@ func (a *API) GetClothingById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	exists, err := a.Repo.Exists(id)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprintf("Unable to get clothing for ID %s", id), http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, fmt.Sprintf("Clothing item not found for ID %s", id), http.StatusNotFound)
+		return
+	}
+
 	item, err := a.Repo.GetById(id)
 
 	if err != nil {
