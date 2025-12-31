@@ -235,6 +235,42 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, fmt.Sprintf("Unauthorised method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	vars := mux.Vars(r)
+	id, exists := vars["id"]
+
+	if !exists {
+		http.Error(w, "Missing 'id' parameter", http.StatusBadRequest)
+		return
+	}
+
+	id = strings.TrimSpace(id)
+
+	if len(id) == 0 {
+		http.Error(w, "Missing 'id' parameter", http.StatusBadRequest)
+		return
+	}
+
+	err := a.Repo.Delete(id)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprintf("Unable to delete clothing for ID %s", id), http.StatusInternalServerError)
+		return
+	}
+
+	resp := map[string]any{"success": true, "id": id}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNoContent)
+
+	json.NewEncoder(w).Encode(resp)
+}
+
 func MissingMandatoryClothingField(req map[string]any) (bool, string) {
 
 	var requiredFields []string = []string{

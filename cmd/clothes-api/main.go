@@ -59,7 +59,7 @@ func main() {
 	repo, err := repository.NewDynamoDBClothingRepository(dynamoClient, dynamoTableName)
 
 	if err != nil {
-		log.Fatalf("ERROR: Failed to create instance of  DynamoDBClothingRepository %v", err)
+		log.Fatalf("ERROR: Failed to create instance of DynamoDBClothingRepository %v", err)
 	}
 
 	apiHandler := &api.API{
@@ -72,6 +72,7 @@ func main() {
 	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
 	router.HandleFunc("/clothes/{id}", apiHandler.GetClothingById).Methods(http.MethodGet)
 	router.HandleFunc("/clothes/{id}", apiHandler.UpdateClothing).Methods(http.MethodPost, http.MethodPut, http.MethodPatch)
+	router.HandleFunc("/clothes/{id}", apiHandler.DeleteClothing).Methods(http.MethodDelete)
 
 	srv := &http.Server{
 		Addr:         portStr,

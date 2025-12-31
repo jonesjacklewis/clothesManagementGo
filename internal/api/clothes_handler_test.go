@@ -801,7 +801,7 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
+		r := httptest.NewRequest(http.MethodTrace, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -1357,5 +1357,154 @@ func TestUpdateClothing(t *testing.T) {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
 		}
 
+	})
+}
+
+func TestDeleteClothing(t *testing.T) {
+	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodTrace, "/clothes/test-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected a %d error, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given missing id, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Missing 'id' parameter"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given empty or whitespace id, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": ""})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Missing 'id' parameter"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given DELETE request, with issues with delete, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		dummyRepo := &DummyClothingRepo{
+			DeleteError: errors.New("Some Type of Error"),
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("Expeted %d got %d", http.StatusInternalServerError, resp.StatusCode)
+		}
+
+		expected := "Unable to delete clothing for ID legit-id"
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+
+	})
+
+	t.Run("Given DELETE request, with no issues with delete, should not return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		dummyRepo := &DummyClothingRepo{
+			DeletedID: "legit-id",
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNoContent {
+			t.Errorf("Expeted %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		var responseBody map[string]any
+		err := json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v", err)
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		id, ok := responseBody["id"]
+		if !ok {
+			t.Fatalf("Expected 'id' field in response, got %v", responseBody["data"])
+		}
+
+		if id != "legit-id" {
+			t.Errorf("Expected returned ID legit-id, got %v", id)
+		}
 	})
 }
