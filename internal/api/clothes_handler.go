@@ -264,11 +264,7 @@ func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]any{"success": true, "id": id}
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusNoContent)
-
-	json.NewEncoder(w).Encode(resp)
 }
 
 func MissingMandatoryClothingField(req map[string]any) (bool, string) {

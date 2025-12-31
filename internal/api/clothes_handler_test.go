@@ -1486,25 +1486,5 @@ func TestDeleteClothing(t *testing.T) {
 		if resp.StatusCode != http.StatusNoContent {
 			t.Errorf("Expeted %d got %d", http.StatusOK, resp.StatusCode)
 		}
-
-		var responseBody map[string]any
-		err := json.Unmarshal(w.Body.Bytes(), &responseBody)
-
-		if err != nil {
-			t.Fatalf("Failed to unmarshal response body: %v", err)
-		}
-
-		if responseBody["success"] != true {
-			t.Errorf("Expected success: true, got %v", responseBody["success"])
-		}
-
-		id, ok := responseBody["id"]
-		if !ok {
-			t.Fatalf("Expected 'id' field in response, got %v", responseBody["data"])
-		}
-
-		if id != "legit-id" {
-			t.Errorf("Expected returned ID legit-id, got %v", id)
-		}
 	})
 }
