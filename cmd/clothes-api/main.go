@@ -71,6 +71,7 @@ func main() {
 	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
 	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
 	router.HandleFunc("/clothes/{id}", apiHandler.GetClothingById).Methods(http.MethodGet)
+	router.HandleFunc("/clothes/{id}", apiHandler.UpdateClothing).Methods(http.MethodPost, http.MethodPut, http.MethodPatch)
 
 	srv := &http.Server{
 		Addr:         portStr,

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -97,6 +98,147 @@ func (d *DummyClothingRepo) Delete(id string) error {
 	return nil
 }
 
+func TestMissingMandatoryClothingField(t *testing.T) {
+	t.Run("Given no pricePence field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'pricePence'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given no clothingType field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence": 2000,
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'clothingType'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given no description field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'description'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given no brand field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "A Red Jumper",
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'brand'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given no store field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "A Red Jumper",
+			"brand":        "A&B",
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'store'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given no size field, should return true and appropriate message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "A Red Jumper",
+			"brand":        "A&B",
+			"store":        "My Real Store",
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if !missing {
+			t.Errorf("Expected missing to be true")
+		}
+
+		expectedMessage := "Invalid request body, missing 'size'"
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+
+	t.Run("Given all required fields, should return false and empty message", func(t *testing.T) {
+		var req map[string]any = map[string]any{
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "A Red Jumper",
+			"brand":        "A&B",
+			"store":        "My Real Store",
+			"size":         "M",
+		}
+
+		missing, message := MissingMandatoryClothingField(req)
+
+		if missing {
+			t.Errorf("Expected missing to be false")
+		}
+
+		expectedMessage := ""
+
+		if message != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, message)
+		}
+	})
+}
+
 func TestCreateClothing(t *testing.T) {
 	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
@@ -172,7 +314,7 @@ func TestCreateClothing(t *testing.T) {
 		}
 	})
 
-	t.Run("Given POST request, where data has no pricePence, should return error", func(t *testing.T) {
+	t.Run("Given POST request, where data has missing field, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
 		var jsonMap map[string]any = map[string]any{
@@ -203,191 +345,6 @@ func TestCreateClothing(t *testing.T) {
 		}
 
 		expectedMessage := "Invalid request body, missing 'pricePence'"
-
-		if !strings.Contains(w.Body.String(), expectedMessage) {
-			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
-		}
-	})
-
-	t.Run("Given POST request, where data has no clothingType, should return error", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		var jsonMap map[string]any = map[string]any{
-			"pricePence":  2000,
-			"description": "Red Loosefit Jumper",
-			"brand":       "A&B",
-			"store":       "Totally Real Store",
-			"size":        "Medium",
-		}
-
-		body, err := json.Marshal(jsonMap)
-		if err != nil {
-			t.Fatalf("failed to marshal json: %v", err)
-		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
-
-		dummyRepo := &DummyClothingRepo{}
-		apiHandler := &API{
-			Repo: dummyRepo,
-		}
-		apiHandler.CreateClothing(w, r)
-
-		resp := w.Result()
-
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
-		}
-
-		expectedMessage := "Invalid request body, missing 'clothingType'"
-
-		if !strings.Contains(w.Body.String(), expectedMessage) {
-			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
-		}
-	})
-
-	t.Run("Given POST request, where data has no description, should return error", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		var jsonMap map[string]any = map[string]any{
-			"pricePence":   2000,
-			"clothingType": "Jumper",
-			"brand":        "A&B",
-			"store":        "Totally Real Store",
-			"size":         "Medium",
-		}
-
-		body, err := json.Marshal(jsonMap)
-		if err != nil {
-			t.Fatalf("failed to marshal json: %v", err)
-		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
-
-		dummyRepo := &DummyClothingRepo{}
-		apiHandler := &API{
-			Repo: dummyRepo,
-		}
-		apiHandler.CreateClothing(w, r)
-
-		resp := w.Result()
-
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
-		}
-
-		expectedMessage := "Invalid request body, missing 'description'"
-
-		if !strings.Contains(w.Body.String(), expectedMessage) {
-			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
-		}
-	})
-
-	t.Run("Given POST request, where data has no brand, should return error", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		var jsonMap map[string]any = map[string]any{
-			"pricePence":   2000,
-			"clothingType": "Jumper",
-			"description":  "Red loosefit jumper",
-			"store":        "Totally Real Store",
-			"size":         "Medium",
-		}
-
-		body, err := json.Marshal(jsonMap)
-		if err != nil {
-			t.Fatalf("failed to marshal json: %v", err)
-		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
-
-		dummyRepo := &DummyClothingRepo{}
-		apiHandler := &API{
-			Repo: dummyRepo,
-		}
-		apiHandler.CreateClothing(w, r)
-
-		resp := w.Result()
-
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
-		}
-
-		expectedMessage := "Invalid request body, missing 'brand'"
-
-		if !strings.Contains(w.Body.String(), expectedMessage) {
-			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
-		}
-	})
-
-	t.Run("Given POST request, where data has no store, should return error", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		var jsonMap map[string]any = map[string]any{
-			"pricePence":   2000,
-			"clothingType": "Jumper",
-			"description":  "Red loosefit jumper",
-			"brand":        "A&B",
-			"size":         "Medium",
-		}
-
-		body, err := json.Marshal(jsonMap)
-		if err != nil {
-			t.Fatalf("failed to marshal json: %v", err)
-		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
-
-		dummyRepo := &DummyClothingRepo{}
-		apiHandler := &API{
-			Repo: dummyRepo,
-		}
-		apiHandler.CreateClothing(w, r)
-
-		resp := w.Result()
-
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
-		}
-
-		expectedMessage := "Invalid request body, missing 'store'"
-
-		if !strings.Contains(w.Body.String(), expectedMessage) {
-			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
-		}
-	})
-
-	t.Run("Given POST request, where data has no size, should return error", func(t *testing.T) {
-		w := httptest.NewRecorder()
-
-		var jsonMap map[string]any = map[string]any{
-			"pricePence":   2000,
-			"clothingType": "Jumper",
-			"description":  "Red loosefit jumper",
-			"brand":        "A&B",
-			"store":        "Totlly Real Store",
-		}
-
-		body, err := json.Marshal(jsonMap)
-		if err != nil {
-			t.Fatalf("failed to marshal json: %v", err)
-		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
-
-		dummyRepo := &DummyClothingRepo{}
-		apiHandler := &API{
-			Repo: dummyRepo,
-		}
-		apiHandler.CreateClothing(w, r)
-
-		resp := w.Result()
-
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
-		}
-
-		expectedMessage := "Invalid request body, missing 'size'"
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
@@ -837,5 +794,568 @@ func TestGetClothingById(t *testing.T) {
 		if data["id"] != "legit-id" {
 			t.Errorf("Expected returned ID legit-id, got %v", data["id"])
 		}
+	})
+}
+
+func TestUpdateClothing(t *testing.T) {
+	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected a %d error, got %d", http.StatusMethodNotAllowed, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, with empty or whitespace id, should return an error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/test-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": ""})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Missing 'id' parameter"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, with valid id, but missing or empty body, should return an error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected a %d error, got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body must not be empty or missing"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, where data isn't json, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, strings.NewReader("data"))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body must be JSON"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, where data has missing field, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"clothingType": "Jumper",
+			"description":  "Red Loosefit Jumper",
+			"brand":        "A&B",
+			"store":        "Totally Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Invalid request body, missing 'pricePence'"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given POST request, where data has extra field, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+			"fakeField":    "fakeValue",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Invalid request body, superfluous fields"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, where URL and body ID do not match, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		bodyId := "test-id"
+		urlId := bodyId + uuid.New().String()
+		var jsonMap map[string]any = map[string]any{
+			"id":           bodyId,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+urlId, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": urlId})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Body has Id = %s, but id = %s, resulting is mismatch", bodyId, urlId)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, where data is structurally valid, but breaks validation, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   -2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Invalid request body, breaks validation rule:"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given PUT request, with valid data but issue on save, should have error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		dummyRepo := &DummyClothingRepo{
+			UpdateError: fmt.Errorf("A dummy error"),
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("Expected %d got %d", http.StatusInternalServerError, resp.StatusCode)
+		}
+
+		expectedMessage := "Error updating clothing item"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+
+	})
+
+	t.Run("Given PUT request, with valid data and no issue on save, should have success", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+		sentClothing := domain.Clothing{
+			Id:           id,
+			Price:        domain.Pence(2000),
+			ClothingType: "Jumper",
+			Description:  "Red loosefit jumper",
+			Brand:        "A&B",
+			Store:        "Totlly Real Store",
+			Size:         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+		expectedID := id
+		dummyRepo := &DummyClothingRepo{
+			UpdateReturnItem: &sentClothing,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		if dummyRepo.UpdateReturnItem == nil {
+			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
+		} else {
+			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
+				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
+			}
+		}
+
+		var responseBody map[string]any
+		err = json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v, %s", err, w.Body.String())
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		data, ok := responseBody["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
+		}
+
+		if data["id"] != expectedID {
+			t.Errorf("Expected returned ID %s, got %v", expectedID, data["id"])
+		}
+
+		if data["clothingType"] != jsonMap["clothingType"] {
+			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
+		}
+
+	})
+
+	t.Run("Given PATCH request, with valid data and no issue on save, should have success", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+		sentClothing := domain.Clothing{
+			Id:           id,
+			Price:        domain.Pence(2000),
+			ClothingType: "Jumper",
+			Description:  "Red loosefit jumper",
+			Brand:        "A&B",
+			Store:        "Totlly Real Store",
+			Size:         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPatch, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+		expectedID := id
+		dummyRepo := &DummyClothingRepo{
+			UpdateReturnItem: &sentClothing,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		if dummyRepo.UpdateReturnItem == nil {
+			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
+		} else {
+			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
+				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
+			}
+		}
+
+		var responseBody map[string]any
+		err = json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v, %s", err, w.Body.String())
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		data, ok := responseBody["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
+		}
+
+		if data["id"] != expectedID {
+			t.Errorf("Expected returned ID %s, got %v", expectedID, data["id"])
+		}
+
+		if data["clothingType"] != jsonMap["clothingType"] {
+			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
+		}
+
+	})
+
+	t.Run("Given POST request, with valid data and no issue on save, should have success", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+		sentClothing := domain.Clothing{
+			Id:           id,
+			Price:        domain.Pence(2000),
+			ClothingType: "Jumper",
+			Description:  "Red loosefit jumper",
+			Brand:        "A&B",
+			Store:        "Totlly Real Store",
+			Size:         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+		expectedID := id
+		dummyRepo := &DummyClothingRepo{
+			UpdateReturnItem: &sentClothing,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		if dummyRepo.UpdateReturnItem == nil {
+			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
+		} else {
+			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
+				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
+			}
+		}
+
+		var responseBody map[string]any
+		err = json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v, %s", err, w.Body.String())
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		data, ok := responseBody["data"].(map[string]any)
+		if !ok {
+			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
+		}
+
+		if data["id"] != expectedID {
+			t.Errorf("Expected returned ID %s, got %v", expectedID, data["id"])
+		}
+
+		if data["clothingType"] != jsonMap["clothingType"] {
+			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
+		}
+
 	})
 }
