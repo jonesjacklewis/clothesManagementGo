@@ -1138,6 +1138,7 @@ func TestUpdateClothing(t *testing.T) {
 
 		dummyRepo := &DummyClothingRepo{
 			UpdateError: fmt.Errorf("A dummy error"),
+			ShouldExist: true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,
@@ -1151,6 +1152,50 @@ func TestUpdateClothing(t *testing.T) {
 		}
 
 		expectedMessage := "Error updating clothing item"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+
+	})
+
+	t.Run("Given PUT request, but ID does not exist, should have error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		id := "test-id"
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+		dummyRepo := &DummyClothingRepo{
+			ShouldExist: false,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expected %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Clothing item not found for ID %s", id)
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
@@ -1192,6 +1237,7 @@ func TestUpdateClothing(t *testing.T) {
 		expectedID := id
 		dummyRepo := &DummyClothingRepo{
 			UpdateReturnItem: &sentClothing,
+			ShouldExist:      true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,
@@ -1272,6 +1318,7 @@ func TestUpdateClothing(t *testing.T) {
 		expectedID := id
 		dummyRepo := &DummyClothingRepo{
 			UpdateReturnItem: &sentClothing,
+			ShouldExist:      true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,
@@ -1352,6 +1399,7 @@ func TestUpdateClothing(t *testing.T) {
 		expectedID := id
 		dummyRepo := &DummyClothingRepo{
 			UpdateReturnItem: &sentClothing,
+			ShouldExist:      true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,

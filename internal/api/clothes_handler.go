@@ -232,6 +232,19 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	exists, err = a.Repo.Exists(clothing.Id)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprintf("Error updating clothing item %s", id), http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, fmt.Sprintf("Clothing item not found for ID %s", id), http.StatusNotFound)
+		return
+	}
+
 	clothing, err = a.Repo.Update(clothing)
 
 	if err != nil {
