@@ -3,7 +3,6 @@ package api
 import (
 	"bytes"
 	"clothes_management/internal/domain"
-	"clothes_management/internal/repository"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,10 +13,6 @@ import (
 
 	"github.com/gorilla/mux"
 )
-
-type API struct {
-	Repo repository.ClothingRepository
-}
 
 func (a *API) CreateClothing(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

@@ -76,4 +76,7 @@ AWS_SECRET_ACCESS_KEY=test
 AWS_REGION=eu-west-1
 DYNAMODB_TABLE_NAME=MyClothesTable
 BASE_ENDPOINT=http://localhost:4566
+COGNITO_USER_POOL_ID=eu-west-1_test
+COGNITO_APP_CLIENT_ID=test
 ```
+

@@ -13,6 +13,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cognitoidentityprovider"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"github.com/gorilla/mux"
@@ -53,6 +54,18 @@ func main() {
 	}
 	log.Printf("SUCCESS: Successfully connected to DynamoDB table '%s' in region '%s'.", dynamoTableName, awsRegion)
 
+	cognitoUserPoolId := os.Getenv("COGNITO_USER_POOL_ID")
+	if cognitoUserPoolId == "" {
+		log.Fatal("ERROR: COGNITO_USER_POOL_ID environment variable not set. Please set it in .env or your shell.")
+	}
+
+	cognitoAppClientId := os.Getenv("COGNITO_APP_CLIENT_ID")
+	if cognitoAppClientId == "" {
+		log.Fatal("ERROR: COGNITO_APP_CLIENT_ID environment variable not set. Please set it in .env or your shell.")
+	}
+
+	cognitoClient := cognitoidentityprovider.NewFromConfig(cfg)
+
 	port := 8080
 	portStr := fmt.Sprintf(":%d", port)
 
@@ -63,10 +76,15 @@ func main() {
 	}
 
 	apiHandler := &api.API{
-		Repo: repo,
+		Repo:               repo,
+		CognitoClient:      cognitoClient,
+		CognitoAppClientID: cognitoAppClientId,
+		CognitoUserPoolID:  cognitoUserPoolId,
 	}
 
 	router := mux.NewRouter()
+
+	router.HandleFunc("/signup", apiHandler.SignUp).Methods(http.MethodPost)
 
 	router.HandleFunc("/clothes", apiHandler.GetClothing).Methods(http.MethodGet)
 	router.HandleFunc("/clothes", apiHandler.CreateClothing).Methods(http.MethodPost)
