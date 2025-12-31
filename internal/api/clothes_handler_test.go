@@ -1532,6 +1532,7 @@ func TestDeleteClothing(t *testing.T) {
 
 		dummyRepo := &DummyClothingRepo{
 			DeleteError: errors.New("Some Type of Error"),
+			ShouldExist: true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,
@@ -1553,6 +1554,35 @@ func TestDeleteClothing(t *testing.T) {
 
 	})
 
+	t.Run("Given DELETE request, when id does not exist, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		dummyRepo := &DummyClothingRepo{
+			ShouldExist: false,
+		}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := fmt.Sprintf("Clothing item not found for ID %s", "legit-id")
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+
+	})
+
 	t.Run("Given DELETE request, with no issues with delete, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
@@ -1560,7 +1590,8 @@ func TestDeleteClothing(t *testing.T) {
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
 		dummyRepo := &DummyClothingRepo{
-			DeletedID: "legit-id",
+			DeletedID:   "legit-id",
+			ShouldExist: true,
 		}
 		apiHandler := &API{
 			Repo: dummyRepo,

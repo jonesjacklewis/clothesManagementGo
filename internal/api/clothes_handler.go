@@ -282,7 +282,20 @@ func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := a.Repo.Delete(id)
+	exists, err := a.Repo.Exists(id)
+
+	if err != nil {
+		log.Print(err)
+		http.Error(w, fmt.Sprintf("Error deleting clothing item %s", id), http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, fmt.Sprintf("Clothing item not found for ID %s", id), http.StatusNotFound)
+		return
+	}
+
+	err = a.Repo.Delete(id)
 
 	if err != nil {
 		log.Print(err)
