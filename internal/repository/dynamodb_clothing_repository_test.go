@@ -560,27 +560,30 @@ func TestDynamoGetById(t *testing.T) {
 	})
 
 	t.Run("When the item doesn't exist GetById should return an error", func(t *testing.T) {
-		repo := NewInMemoryClothingRepository()
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
 
 		if repo == nil {
 			t.Fatal("repo should not be null")
 		}
 
-		if repo.items == nil {
-			t.Fatal("repo.items should not be null")
-		}
-
-		if len(repo.items) != 0 {
-			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
-		}
-
-		_, err := repo.GetById("dummy-id-123")
+		_, err = repo.GetById("dummy-id-123")
 
 		if err == nil {
 			t.Errorf("Expected an error")
 		}
 
-		expectedMessage := "No item exists for id dummy-id-123"
+		expectedMessage := "No item found for id dummy-id-123"
 
 		if err.Error() != expectedMessage {
 			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
@@ -589,43 +592,45 @@ func TestDynamoGetById(t *testing.T) {
 	})
 
 	t.Run("When the item exists, GetById should return the item", func(t *testing.T) {
-		repo := NewInMemoryClothingRepository()
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
 
 		if repo == nil {
 			t.Fatal("repo should not be null")
 		}
 
-		if repo.items == nil {
-			t.Fatal("repo.items should not be null")
-		}
-
-		if len(repo.items) != 0 {
-			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
-		}
-
-		repo.mu.Lock()
-
 		dummyId := "dummy-id-123"
 
-		repo.items[dummyId] = domain.Clothing{
-			Id:           dummyId,
+		savedItem, err := repo.Save(domain.Clothing{
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
 			Store:        "This Store",
 			Size:         "L",
 			Brand:        "XYZ",
 			Price:        2000,
+		})
+
+		if err != nil {
+			t.Errorf("Expected no error on save item, got %v", err)
 		}
 
-		repo.mu.Unlock()
-
-		item, err := repo.GetById(dummyId)
+		item, err := repo.GetById(savedItem.Id)
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
 		}
 
-		if item.Id != dummyId {
+		if item.Id != savedItem.Id {
 			t.Errorf("Expected item.Id = %s, got %s", dummyId, item.Id)
 		}
 	})
