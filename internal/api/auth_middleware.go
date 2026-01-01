@@ -17,7 +17,8 @@ type AuthMiddleware struct {
 	CognitoAppClientID string
 	CognitoUserPoolID  string
 	JwksUrl            string
-	Region             string
+	AwsRegion          string
+	ValidMethods       []string
 
 	jwksCache jwk.Set
 	jwksMu    sync.RWMutex
@@ -39,7 +40,8 @@ func NewAuthMiddleware(appClientID, userPoolID, jwksURL, region string) (*AuthMi
 		CognitoAppClientID: appClientID,
 		CognitoUserPoolID:  userPoolID,
 		JwksUrl:            jwksURL,
-		Region:             region,
+		AwsRegion:          region,
+		ValidMethods:       []string{"RS256"},
 	}
 
 	// Initial fetch of JWKS
@@ -95,7 +97,7 @@ func (a *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 		tokenString := parts[1]
-		expectedIss := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", a.Region, a.CognitoUserPoolID)
+		expectedIss := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", a.AwsRegion, a.CognitoUserPoolID)
 
 		// --- JWT Parsing and Validation ---
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
@@ -122,6 +124,7 @@ func (a *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			}
 
 			// Extract the RSA public key from the JWK
+			// Should be unreachable under current implementation, so will not unit test
 			var publicKey any
 			if err := key.Raw(&publicKey); err != nil {
 				log.Printf("ERROR: Failed to get raw public key from JWK: %v", err)
@@ -129,10 +132,10 @@ func (a *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			}
 			return publicKey, nil
 		},
-			jwt.WithValidMethods([]string{"RS256"}), // Cognito ID Tokens typically use RS256
-			jwt.WithIssuer(expectedIss),             // Validate the 'iss' claim
-			jwt.WithExpirationRequired(),            // Validate the 'exp' claim
-			jwt.WithTimeFunc(time.Now),              // Use current time for expiry checks
+			jwt.WithValidMethods(a.ValidMethods), // Cognito ID Tokens typically use RS256
+			jwt.WithIssuer(expectedIss),          // Validate the 'iss' claim
+			jwt.WithExpirationRequired(),         // Validate the 'exp' claim
+			jwt.WithTimeFunc(time.Now),           // Use current time for expiry checks
 		)
 
 		if err != nil {
@@ -141,12 +144,14 @@ func (a *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 
+		// Should be unreachable under current implementation, so will not unit test
 		if !token.Valid {
 			http.Error(w, "Invalid token signature or claims", http.StatusUnauthorized)
 			return
 		}
 
 		// --- Extract UserID from Claims ---
+		// Should be unreachable under current implementation, so will not unit test
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
 			log.Printf("ERROR: Could not get claims from token as MapClaims")
