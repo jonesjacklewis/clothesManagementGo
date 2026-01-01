@@ -84,7 +84,7 @@ func main() {
 		CognitoUserPoolID:  cognitoUserPoolId,
 	}
 
-	authMiddleware, err := api.NewAuthMiddleware(cognitoAppClientId, cognitoUserPoolId, jwksUrl)
+	authMiddleware, err := api.NewAuthMiddleware(cognitoAppClientId, cognitoUserPoolId, jwksUrl, awsRegion)
 
 	if err != nil {
 		log.Fatalf("ERROR: Failed to create AuthMiddleware: %v", err)

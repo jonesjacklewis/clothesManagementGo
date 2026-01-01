@@ -17,6 +17,7 @@ type AuthMiddleware struct {
 	CognitoAppClientID string
 	CognitoUserPoolID  string
 	JwksUrl            string
+	Region             string
 
 	jwksCache jwk.Set
 	jwksMu    sync.RWMutex
@@ -26,15 +27,19 @@ type contextKey string
 
 const UserIDContextKey contextKey = "userID"
 
-func NewAuthMiddleware(appClientID, userPoolID, jwksURL string) (*AuthMiddleware, error) {
-	if strings.TrimSpace(appClientID) == "" || strings.TrimSpace(userPoolID) == "" || strings.TrimSpace(jwksURL) == "" {
-		return nil, fmt.Errorf("appClientID, userPoolID, and jwksURL cannot be empty")
+func NewAuthMiddleware(appClientID, userPoolID, jwksURL, region string) (*AuthMiddleware, error) {
+	if strings.TrimSpace(appClientID) == "" ||
+		strings.TrimSpace(userPoolID) == "" ||
+		strings.TrimSpace(jwksURL) == "" ||
+		strings.TrimSpace(region) == "" {
+		return nil, fmt.Errorf("appClientID, userPoolID, jwksURL, and region cannot be empty")
 	}
 
 	mw := &AuthMiddleware{
 		CognitoAppClientID: appClientID,
 		CognitoUserPoolID:  userPoolID,
 		JwksUrl:            jwksURL,
+		Region:             region,
 	}
 
 	// Initial fetch of JWKS
@@ -90,10 +95,10 @@ func (a *AuthMiddleware) Authenticate(next http.Handler) http.Handler {
 			return
 		}
 		tokenString := parts[1]
-		expectedIss := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", "eu-west-1", a.CognitoUserPoolID)
+		expectedIss := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", a.Region, a.CognitoUserPoolID)
 
 		// --- JWT Parsing and Validation ---
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (any, error) {
 			// Ensure token is signed with an expected algorithm
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				log.Printf("WARN: Unexpected signing method: %v", token.Header["alg"])
