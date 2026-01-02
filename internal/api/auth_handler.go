@@ -114,10 +114,36 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid JSON request body", http.StatusBadRequest)
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
 		return
+	}
+
+	var reqMap map[string]any
+
+	if err := json.Unmarshal(bodyBytes, &reqMap); err != nil {
+		http.Error(w, "Request body must be JSON", http.StatusBadRequest)
+		return
+	}
+
+	email, exists := reqMap["email"]
+
+	if !exists {
+		http.Error(w, "Request body missing email field", http.StatusBadRequest)
+		return
+	}
+
+	password, exists := reqMap["password"]
+
+	if !exists {
+		http.Error(w, "Request body missing password field", http.StatusBadRequest)
+		return
+	}
+
+	var req LoginRequest = LoginRequest{
+		Email:    email.(string),
+		Password: password.(string),
 	}
 
 	isValidEmail := validateEmail(req.Email)

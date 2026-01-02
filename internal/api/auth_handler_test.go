@@ -17,9 +17,15 @@ import (
 )
 
 type DummyCognito struct {
-	ShouldErrOnSignUp bool
-	SignUpErr         error
-	SignUpUserSub     string
+	ShouldErrOnSignUp                 bool
+	SignUpErr                         error
+	SignUpUserSub                     string
+	ShouldErrOnInitiateAtuh           bool
+	InitiateAuthErr                   error
+	ShouldHaveNilAuthenticationResult bool
+	InitiateAuthAccessToken           string
+	InitiateAuthIdToken               string
+	InitiateAuthRefreshToken          string
 }
 
 func (d *DummyCognito) SignUp(ctx context.Context, params *cognitoidentityprovider.SignUpInput, optFns ...func(*cognitoidentityprovider.Options)) (*cognitoidentityprovider.SignUpOutput, error) {
@@ -36,7 +42,31 @@ func (d *DummyCognito) SignUp(ctx context.Context, params *cognitoidentityprovid
 }
 
 func (d *DummyCognito) InitiateAuth(ctx context.Context, params *cognitoidentityprovider.InitiateAuthInput, optFns ...func(*cognitoidentityprovider.Options)) (*cognitoidentityprovider.InitiateAuthOutput, error) {
-	return nil, nil
+
+	if d.ShouldErrOnInitiateAtuh {
+		return nil, d.InitiateAuthErr
+	}
+
+	var result cognitoidentityprovider.InitiateAuthOutput
+
+	if d.ShouldHaveNilAuthenticationResult {
+		result = cognitoidentityprovider.InitiateAuthOutput{
+			AuthenticationResult: nil,
+		}
+
+	} else {
+		var authenticationResult types.AuthenticationResultType = types.AuthenticationResultType{
+			AccessToken:  &d.InitiateAuthAccessToken,
+			IdToken:      &d.InitiateAuthIdToken,
+			RefreshToken: &d.InitiateAuthRefreshToken,
+		}
+
+		result = cognitoidentityprovider.InitiateAuthOutput{
+			AuthenticationResult: &authenticationResult,
+		}
+	}
+
+	return &result, nil
 }
 
 func TestValidateEmail(t *testing.T) {
@@ -519,5 +549,495 @@ func TestSignUp(t *testing.T) {
 			t.Errorf("Expected %s got %s", expectedUserSub, userId.(string))
 		}
 
+	})
+}
+
+func TestLogIn(t *testing.T) {
+	t.Run("Given method is not POST, should return StatusMethodNotAllowed", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/login", nil)
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusMethodNotAllowed {
+			t.Errorf("Expected %d got %d", http.StatusMethodNotAllowed, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Unsupported method %s.", http.MethodGet)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but body is nil, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/login", nil)
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body must not be empty or missing"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but body is invalid JSON, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader("data"))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body must be JSON"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but body does not contain email, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"notEmail": "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body missing email field"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but body does not contain password, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":       "valid@domain.com",
+			"notPassword": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Request body missing password field"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but email is invalid, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "v@lid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Email is not valid"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but password is invalid, should return StatusBadRequest", func(t *testing.T) {
+		dummyCognito := &DummyCognito{}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := "Password is not valid"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but incorrect email or password, should return StatusUnauthorized", func(t *testing.T) {
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh: true,
+			InitiateAuthErr: &types.NotAuthorizedException{
+				Message: aws.String("Not Authorized"),
+			},
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected %d got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "Incorrect email or password"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but user not found, should return StatusInternalServerError", func(t *testing.T) {
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh: true,
+			InitiateAuthErr: &types.UserNotFoundException{
+				Message: aws.String("User Not Found"),
+			},
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("Expected %d got %d", http.StatusInternalServerError, resp.StatusCode)
+		}
+
+		expectedMessage := "Failed to login user"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but user not confirmed, should return StatusForbidden", func(t *testing.T) {
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh: true,
+			InitiateAuthErr: &types.UserNotConfirmedException{
+				Message: aws.String("User Not Confirmed"),
+			},
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected %d got %d", http.StatusForbidden, resp.StatusCode)
+		}
+
+		expectedMessage := "User account is not confirmed by an administrator"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but error on InitiateAuth, should return StatusInternalServerError", func(t *testing.T) {
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh: true,
+			InitiateAuthErr:         errors.New("Another error"),
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("Expected %d got %d", http.StatusInternalServerError, resp.StatusCode)
+		}
+
+		expectedMessage := "Failed to login user"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, but result.AuthenticationResult is nil, should return StatusForbidden", func(t *testing.T) {
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh:           false,
+			ShouldHaveNilAuthenticationResult: true,
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusForbidden {
+			t.Errorf("Expected %d got %d", http.StatusForbidden, resp.StatusCode)
+		}
+
+		expectedMessage := "Authentication flow requires additional steps (e.g., MFA) which are not yet implemented."
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method is POST, and successful data, should return StatusOK", func(t *testing.T) {
+
+		expectedAccessToken := "ACCESS_TOKEN"
+		expectedIdToken := "ID_TOKEN"
+		expectedRefreshToken := "REFRESH_TOKEN"
+
+		dummyCognito := &DummyCognito{
+			ShouldErrOnInitiateAtuh:           false,
+			ShouldHaveNilAuthenticationResult: false,
+			InitiateAuthAccessToken:           expectedAccessToken,
+			InitiateAuthIdToken:               expectedIdToken,
+			InitiateAuthRefreshToken:          expectedRefreshToken,
+		}
+
+		apiHandler := &API{
+			CognitoClient: dummyCognito,
+		}
+
+		w := httptest.NewRecorder()
+		var jsonMap map[string]any = map[string]any{
+			"email":    "valid@domain.com",
+			"password": "Password123!",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(body))
+
+		apiHandler.Login(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		var responseBody map[string]any
+		err = json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Response body is not valid JSON: %v", err)
+		}
+
+		accessToken, exists := responseBody["accessToken"]
+
+		if !exists {
+			t.Error("Missing accessToken property")
+		}
+
+		if accessToken.(string) != expectedAccessToken {
+			t.Errorf("Expected %s got %s", expectedAccessToken, accessToken.(string))
+		}
+
+		idToken, exists := responseBody["idToken"]
+
+		if !exists {
+			t.Error("Missing idToken property")
+		}
+
+		if idToken.(string) != expectedIdToken {
+			t.Errorf("Expected %s got %s", expectedIdToken, idToken.(string))
+		}
+
+		refreshToken, exists := responseBody["refreshToken"]
+
+		if !exists {
+			t.Error("Missing refreshToken property")
+		}
+
+		if refreshToken.(string) != expectedRefreshToken {
+			t.Errorf("Expected %s got %s", expectedRefreshToken, refreshToken.(string))
+		}
 	})
 }
