@@ -3,6 +3,7 @@ package repository
 import (
 	"clothes_management/internal/domain"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -34,7 +35,12 @@ func NewDynamoDBClothingRepository(client *dynamodb.Client, tableName string) (*
 	}, nil
 }
 
-func (d *DynamoDBClothingRepository) Save(clothing domain.Clothing) (domain.Clothing, error) {
+func (d *DynamoDBClothingRepository) Save(userId string, clothing domain.Clothing) (domain.Clothing, error) {
+
+	if strings.TrimSpace(userId) == "" {
+		return domain.Clothing{}, errors.New("User ID must not be empty or whitespace")
+	}
+
 	if err := clothing.Validate(); err != nil {
 		return domain.Clothing{}, err
 	}
@@ -42,6 +48,8 @@ func (d *DynamoDBClothingRepository) Save(clothing domain.Clothing) (domain.Clot
 	if clothing.Id == "" {
 		clothing.Id = uuid.New().String()
 	}
+
+	clothing.UserId = userId
 
 	item, err := attributevalue.MarshalMap(clothing)
 
@@ -64,20 +72,29 @@ func (d *DynamoDBClothingRepository) Save(clothing domain.Clothing) (domain.Clot
 
 }
 
-func (d *DynamoDBClothingRepository) GetAll() ([]domain.Clothing, error) {
+func (d *DynamoDBClothingRepository) GetAll(userId string) ([]domain.Clothing, error) {
+
+	if strings.TrimSpace(userId) == "" {
+		return []domain.Clothing{}, errors.New("User ID must not be empty or whitespace")
+	}
+
 	var allClothes []domain.Clothing
 	var lastEvaluatedKey map[string]types.AttributeValue
 
-	scanInput := &dynamodb.ScanInput{
-		TableName: aws.String(d.tableName),
+	queryInput := &dynamodb.QueryInput{
+		TableName:              aws.String(d.tableName),
+		KeyConditionExpression: aws.String("UserId = :uid"),
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":uid": &types.AttributeValueMemberS{Value: userId},
+		},
 	}
 
 	for {
 		if lastEvaluatedKey != nil {
-			scanInput.ExclusiveStartKey = lastEvaluatedKey
+			queryInput.ExclusiveStartKey = lastEvaluatedKey
 		}
 
-		output, err := d.client.Scan(context.TODO(), scanInput)
+		output, err := d.client.Query(context.TODO(), queryInput)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan DynamoDB table '%s': %w", d.tableName, err)
 		}
@@ -102,11 +119,20 @@ func (d *DynamoDBClothingRepository) GetAll() ([]domain.Clothing, error) {
 	return allClothes, nil
 }
 
-func (d *DynamoDBClothingRepository) GetById(id string) (domain.Clothing, error) {
+func (d *DynamoDBClothingRepository) GetById(userId, id string) (domain.Clothing, error) {
+
+	if strings.TrimSpace(userId) == "" {
+		return domain.Clothing{}, errors.New("User ID must not be empty or whitespace")
+	}
+
+	if strings.TrimSpace(id) == "" {
+		return domain.Clothing{}, errors.New("ID must not be empty or whitespace")
+	}
 
 	getItemInput := &dynamodb.GetItemInput{
 		TableName: &d.tableName,
 		Key: map[string]types.AttributeValue{
+			"UserId": &types.AttributeValueMemberS{Value: userId},
 			"Id": &types.AttributeValueMemberS{
 				Value: id,
 			},
@@ -130,13 +156,26 @@ func (d *DynamoDBClothingRepository) GetById(id string) (domain.Clothing, error)
 	return item, nil
 }
 
-func (d *DynamoDBClothingRepository) Update(clothing domain.Clothing) (domain.Clothing, error) {
+func (d *DynamoDBClothingRepository) Update(userId string, clothing domain.Clothing) (domain.Clothing, error) {
+
+	if strings.TrimSpace(userId) == "" {
+		return domain.Clothing{}, errors.New("User ID must not be empty or whitespace")
+	}
+
 	if err := clothing.Validate(); err != nil {
 		return domain.Clothing{}, err
 	}
 
 	if clothing.Id == "" {
 		return domain.Clothing{}, fmt.Errorf("cannot update clothing without ID")
+	}
+
+	if clothing.UserId == "" {
+		clothing.UserId = userId
+	}
+
+	if clothing.UserId != userId {
+		return domain.Clothing{}, fmt.Errorf("Mismatch of user ID")
 	}
 
 	item, err := attributevalue.MarshalMap(clothing)
@@ -159,13 +198,17 @@ func (d *DynamoDBClothingRepository) Update(clothing domain.Clothing) (domain.Cl
 	return clothing, nil
 }
 
-func (d *DynamoDBClothingRepository) Delete(id string) error {
+func (d *DynamoDBClothingRepository) Delete(userId, id string) error {
+
+	if strings.TrimSpace(userId) == "" {
+		return errors.New("User ID must not be empty or whitespace")
+	}
 
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("ID cannot be empty or whitespace")
 	}
 
-	exists, err := d.Exists(id)
+	exists, err := d.Exists(userId, id)
 
 	if err != nil {
 		return fmt.Errorf("Failed to DeleteItem for id %s %v", id, err)
@@ -181,6 +224,9 @@ func (d *DynamoDBClothingRepository) Delete(id string) error {
 			"Id": &types.AttributeValueMemberS{
 				Value: id,
 			},
+			"UserId": &types.AttributeValueMemberS{
+				Value: userId,
+			},
 		},
 	}
 
@@ -193,7 +239,12 @@ func (d *DynamoDBClothingRepository) Delete(id string) error {
 	return nil
 }
 
-func (d *DynamoDBClothingRepository) Exists(id string) (bool, error) {
+func (d *DynamoDBClothingRepository) Exists(userId, id string) (bool, error) {
+
+	if strings.TrimSpace(userId) == "" {
+		return false, errors.New("User ID must not be empty or whitespace")
+	}
+
 	if strings.TrimSpace(id) == "" {
 		return false, fmt.Errorf("ID cannot be empty or whitespace")
 	}
@@ -201,7 +252,8 @@ func (d *DynamoDBClothingRepository) Exists(id string) (bool, error) {
 	input := &dynamodb.GetItemInput{
 		TableName: aws.String(d.tableName),
 		Key: map[string]types.AttributeValue{
-			"Id": &types.AttributeValueMemberS{Value: id},
+			"Id":     &types.AttributeValueMemberS{Value: id},
+			"UserId": &types.AttributeValueMemberS{Value: userId},
 		},
 		// Only fetch the key back
 		ProjectionExpression: aws.String("Id"),

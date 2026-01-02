@@ -50,7 +50,7 @@ func TestInMemorySave(t *testing.T) {
 			Price:        -2000,
 		}
 
-		item, err := repo.Save(clothingItem)
+		item, err := repo.Save("test-user-id", clothingItem)
 
 		if err == nil {
 			t.Error("Expected an error, got nil")
@@ -90,7 +90,7 @@ func TestInMemorySave(t *testing.T) {
 			Price:        2000,
 		}
 
-		item, err := repo.Save(clothingItem)
+		item, err := repo.Save("test-user-id", clothingItem)
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -127,7 +127,7 @@ func TestInMemoryGetAll(t *testing.T) {
 			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -155,7 +155,9 @@ func TestInMemoryGetAll(t *testing.T) {
 
 		repo.mu.Lock()
 
-		repo.items["dummy-id-123"] = domain.Clothing{
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+
+		repo.items["test-user-id"]["dummy-id-123"] = domain.Clothing{
 			Id:           "dummy-id-123",
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
@@ -167,7 +169,7 @@ func TestInMemoryGetAll(t *testing.T) {
 
 		repo.mu.Unlock()
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -195,7 +197,9 @@ func TestInMemoryGetAll(t *testing.T) {
 
 		repo.mu.Lock()
 
-		repo.items["dummy-id-123"] = domain.Clothing{
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+
+		repo.items["test-user-id"]["dummy-id-123"] = domain.Clothing{
 			Id:           "dummy-id-123",
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
@@ -205,7 +209,7 @@ func TestInMemoryGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		repo.items["dummy-id-456"] = domain.Clothing{
+		repo.items["test-user-id"]["dummy-id-456"] = domain.Clothing{
 			Id:           "dummy-id-456",
 			ClothingType: "Troussers",
 			Description:  "This Troussers",
@@ -217,7 +221,7 @@ func TestInMemoryGetAll(t *testing.T) {
 
 		repo.mu.Unlock()
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -245,13 +249,13 @@ func TestInMemoryGetById(t *testing.T) {
 			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
 		}
 
-		_, err := repo.GetById("dummy-id-123")
+		_, err := repo.GetById("test-user-id", "dummy-id-123")
 
 		if err == nil {
 			t.Errorf("Expected an error")
 		}
 
-		expectedMessage := "No item exists for id dummy-id-123"
+		expectedMessage := "No item exists for id dummy-id-123 for user test-user-id"
 
 		if err.Error() != expectedMessage {
 			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
@@ -278,7 +282,9 @@ func TestInMemoryGetById(t *testing.T) {
 
 		dummyId := "dummy-id-123"
 
-		repo.items[dummyId] = domain.Clothing{
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+
+		repo.items["test-user-id"][dummyId] = domain.Clothing{
 			Id:           dummyId,
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
@@ -290,7 +296,7 @@ func TestInMemoryGetById(t *testing.T) {
 
 		repo.mu.Unlock()
 
-		item, err := repo.GetById(dummyId)
+		item, err := repo.GetById("test-user-id", dummyId)
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -330,7 +336,7 @@ func TestInMemoryUpdate(t *testing.T) {
 			Price:        -2000,
 		}
 
-		_, err := repo.Update(item)
+		_, err := repo.Update("test-user-id", item)
 
 		if err == nil {
 			t.Errorf("Expected an error")
@@ -371,7 +377,11 @@ func TestInMemoryUpdate(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err := repo.Update(item)
+		repo.mu.Lock()
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+		repo.mu.Unlock()
+
+		_, err := repo.Update("test-user-id", item)
 
 		if err == nil {
 			t.Errorf("Expected an error")
@@ -409,7 +419,7 @@ func TestInMemoryUpdate(t *testing.T) {
 			Price:        originalPrice,
 		}
 
-		item, err := repo.Save(item)
+		item, err := repo.Save("test-user-id", item)
 
 		itemId := item.Id
 
@@ -417,7 +427,7 @@ func TestInMemoryUpdate(t *testing.T) {
 		newPrice := domain.Pence(1500)
 		updatedItem.Price = newPrice
 
-		updatedItem, err = repo.Update(updatedItem)
+		updatedItem, err = repo.Update("test-user-id", updatedItem)
 
 		if err != nil {
 			t.Errorf("Expected no error, got %v", err)
@@ -453,7 +463,7 @@ func TestInMemoryDelete(t *testing.T) {
 
 		dummyId := ""
 
-		err := repo.Delete(dummyId)
+		err := repo.Delete("test-user-id", dummyId)
 
 		if err == nil {
 			t.Fatalf("Expected an error")
@@ -482,9 +492,14 @@ func TestInMemoryDelete(t *testing.T) {
 			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
 		}
 
+		repo.mu.Lock()
+
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+		repo.mu.Unlock()
+
 		dummyId := "dummy-id-123"
 
-		err := repo.Delete(dummyId)
+		err := repo.Delete("test-user-id", dummyId)
 
 		if err == nil {
 			t.Fatalf("Expected an error")
@@ -522,13 +537,13 @@ func TestInMemoryDelete(t *testing.T) {
 			Price:        2000,
 		}
 
-		item, err := repo.Save(item)
+		item, err := repo.Save("test-user-id", item)
 
 		if err != nil {
 			t.Fatalf("Expected no error %v", err)
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Fatalf("Expected no error %v", err)
@@ -536,13 +551,13 @@ func TestInMemoryDelete(t *testing.T) {
 
 		itemCount := len(items)
 
-		err = repo.Delete(item.Id)
+		err = repo.Delete("test-user-id", item.Id)
 
 		if err != nil {
 			t.Fatalf("Expected no error %v", err)
 		}
 
-		items, err = repo.GetAll()
+		items, err = repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Fatalf("Expected no error %v", err)
@@ -572,7 +587,7 @@ func TestInMemoryExists(t *testing.T) {
 			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
 		}
 
-		exists, err := repo.Exists("test-123")
+		exists, err := repo.Exists("test-user-id", "test-123")
 
 		if err != nil {
 			t.Errorf("Expected no error")
@@ -603,7 +618,9 @@ func TestInMemoryExists(t *testing.T) {
 
 		dummyId := "dummy-id-123"
 
-		repo.items[dummyId] = domain.Clothing{
+		repo.items["test-user-id"] = map[string]domain.Clothing{}
+
+		repo.items["test-user-id"][dummyId] = domain.Clothing{
 			Id:           dummyId,
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
@@ -615,7 +632,7 @@ func TestInMemoryExists(t *testing.T) {
 
 		repo.mu.Unlock()
 
-		exists, err := repo.Exists(dummyId)
+		exists, err := repo.Exists("test-user-id", dummyId)
 
 		if err != nil {
 			t.Errorf("Expected no error")
@@ -645,7 +662,7 @@ func TestSaveAndGetAll(t *testing.T) {
 			t.Errorf("Expected repo.items.length = 0, got %d", len(repo.items))
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error (Get All 1), got %v", err)
@@ -664,13 +681,13 @@ func TestSaveAndGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(clothingItem)
+		_, err = repo.Save("test-user-id", clothingItem)
 
 		if err != nil {
 			t.Errorf("Expected not error (Save 1), got %v", err)
 		}
 
-		items, err = repo.GetAll()
+		items, err = repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error (Get All 2), got %v", err)
@@ -689,13 +706,13 @@ func TestSaveAndGetAll(t *testing.T) {
 			Price:        1500,
 		}
 
-		_, err = repo.Save(clothingItem)
+		_, err = repo.Save("test-user-id", clothingItem)
 
 		if err != nil {
 			t.Errorf("Expected not error (Save 2), got %v", err)
 		}
 
-		items, err = repo.GetAll()
+		items, err = repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error (Get All 3), got %v", err)
@@ -742,7 +759,7 @@ func TestInMemoryConcurrentSaves(t *testing.T) {
 					Price:        domain.Pence(1000 + index),
 				}
 
-				_, err := repo.Save(clothingItem)
+				_, err := repo.Save("test-user-id", clothingItem)
 
 				if err != nil {
 					t.Errorf("Goroutine %d: Failed to save item: %v", index, err)
@@ -754,7 +771,7 @@ func TestInMemoryConcurrentSaves(t *testing.T) {
 
 		wg.Wait()
 
-		allSavedItems, err := repo.GetAll()
+		allSavedItems, err := repo.GetAll("test-user-id")
 		if err != nil {
 			t.Fatalf("Failed to retrieve all items after concurrent saves: %v", err)
 		}
@@ -779,7 +796,7 @@ func TestInMemoryConcurrentGetAll(t *testing.T) {
 				Size:         "S",
 				Price:        domain.Pence(500 + i),
 			}
-			_, err := repo.Save(clothingItem)
+			_, err := repo.Save("test-user-id", clothingItem)
 			if err != nil {
 				t.Fatalf("Failed to setup initial item for concurrent GetAll test: %v", err)
 			}
@@ -792,7 +809,7 @@ func TestInMemoryConcurrentGetAll(t *testing.T) {
 			go func(readIndex int) {
 				defer wg.Done()
 
-				items, err := repo.GetAll()
+				items, err := repo.GetAll("test-user-id")
 				if err != nil {
 					t.Errorf("Goroutine %d: Failed to retrieve items: %v", readIndex, err)
 					return
@@ -806,7 +823,7 @@ func TestInMemoryConcurrentGetAll(t *testing.T) {
 
 		wg.Wait()
 
-		finalItems, err := repo.GetAll()
+		finalItems, err := repo.GetAll("test-user-id")
 		if err != nil {
 			t.Fatalf("Failed final GetAll check: %v", err)
 		}

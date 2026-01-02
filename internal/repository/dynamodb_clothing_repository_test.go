@@ -37,7 +37,7 @@ func clearDynamoDBTable(t *testing.T, client *dynamodb.Client, tableName string)
 	for {
 		scanOutput, err := client.Scan(context.TODO(), &dynamodb.ScanInput{
 			TableName:            aws.String(tableName),
-			ProjectionExpression: aws.String("Id"),
+			ProjectionExpression: aws.String("UserId, Id"),
 			ExclusiveStartKey:    lastEvaluatedKey,
 		})
 		if err != nil {
@@ -193,6 +193,50 @@ func TestNewDynamoDBClothingRepository(t *testing.T) {
 }
 
 func TestDynamoSave(t *testing.T) {
+
+	t.Run("Given empty user id, should return error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		clothingItem := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		item, err := repo.Save("", clothingItem)
+
+		if err == nil {
+			t.Error("Expected an error, got nil")
+		}
+
+		if item.Id != "" {
+			t.Errorf("Expected item not to have id, got %s", item.Id)
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+
+	})
+
 	t.Run("Given invalid clothing, should return error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
@@ -220,7 +264,7 @@ func TestDynamoSave(t *testing.T) {
 			Price:        -2000,
 		}
 
-		item, err := repo.Save(clothingItem)
+		item, err := repo.Save("test-user-id", clothingItem)
 
 		if err == nil {
 			t.Error("Expected an error, got nil")
@@ -265,7 +309,7 @@ func TestDynamoSave(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(clothingItem)
+		_, err = repo.Save("test-user-id", clothingItem)
 
 		if err == nil {
 			t.Error("Expected to error")
@@ -306,7 +350,7 @@ func TestDynamoSave(t *testing.T) {
 			Price:        2000,
 		}
 
-		item, err := repo.Save(clothingItem)
+		item, err := repo.Save("test-user-id", clothingItem)
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -346,7 +390,7 @@ func TestDynamoGetAll(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -390,13 +434,13 @@ func TestDynamoGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(item)
+		_, err = repo.Save("test-user-id", item)
 
 		if err == nil {
 			t.Errorf("Expected error when saving")
 		}
 
-		_, err = repo.GetAll()
+		_, err = repo.GetAll("test-user-id")
 
 		if err == nil {
 			t.Errorf("Expected error on GetAll")
@@ -437,13 +481,13 @@ func TestDynamoGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(item)
+		_, err = repo.Save("test-user-id", item)
 
 		if err != nil {
 			t.Errorf("Expected no error when saving %s, got %v", item.Description, err)
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -486,7 +530,7 @@ func TestDynamoGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(item)
+		_, err = repo.Save("test-user-id", item)
 
 		if err != nil {
 			t.Errorf("Expected no error when saving %s, got %v", item.Description, err)
@@ -501,13 +545,13 @@ func TestDynamoGetAll(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Save(item)
+		_, err = repo.Save("test-user-id", item)
 
 		if err != nil {
 			t.Errorf("Expected no error when saving %s, got %v", item.Description, err)
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -545,7 +589,7 @@ func TestDynamoGetById(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		_, err = repo.GetById("dummy-id-123")
+		_, err = repo.GetById("test-user-id", "dummy-id-123")
 
 		expectedMessage := "Failed to GetItem for id"
 
@@ -577,7 +621,7 @@ func TestDynamoGetById(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		_, err = repo.GetById("dummy-id-123")
+		_, err = repo.GetById("test-user-id", "dummy-id-123")
 
 		if err == nil {
 			t.Errorf("Expected an error")
@@ -611,7 +655,7 @@ func TestDynamoGetById(t *testing.T) {
 
 		dummyId := "dummy-id-123"
 
-		savedItem, err := repo.Save(domain.Clothing{
+		savedItem, err := repo.Save("test-user-id", domain.Clothing{
 			ClothingType: "Jumper",
 			Description:  "This Jumper",
 			Store:        "This Store",
@@ -624,7 +668,7 @@ func TestDynamoGetById(t *testing.T) {
 			t.Errorf("Expected no error on save item, got %v", err)
 		}
 
-		item, err := repo.GetById(savedItem.Id)
+		item, err := repo.GetById("test-user-id", savedItem.Id)
 
 		if err != nil {
 			t.Errorf("Expected not error, got %v", err)
@@ -667,7 +711,7 @@ func TestDynamoUpdate(t *testing.T) {
 			Price:        -2000,
 		}
 
-		_, err = repo.Update(item)
+		_, err = repo.Update("test-user-id", item)
 
 		if err == nil {
 			t.Errorf("Expected an error")
@@ -708,7 +752,7 @@ func TestDynamoUpdate(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Update(item)
+		_, err = repo.Update("test-user-id", item)
 
 		if err == nil {
 			t.Errorf("Expected an error")
@@ -752,7 +796,7 @@ func TestDynamoUpdate(t *testing.T) {
 			Price:        2000,
 		}
 
-		_, err = repo.Update(item)
+		_, err = repo.Update("test-user-id", item)
 
 		expectedMessage := "failed to update item into DynamoDB:"
 
@@ -795,7 +839,7 @@ func TestDynamoUpdate(t *testing.T) {
 			Price:        originalPrice,
 		}
 
-		item, err = repo.Save(item)
+		item, err = repo.Save("test-user-id", item)
 
 		if err != nil {
 			t.Fatalf("Expected not to err, got %v", err)
@@ -805,13 +849,13 @@ func TestDynamoUpdate(t *testing.T) {
 
 		item.Price = newPrice
 
-		item, err = repo.Update(item)
+		item, err = repo.Update("test-user-id", item)
 
 		if item.Price == originalPrice {
 			t.Errorf("Expected %d got %d", newPrice, originalPrice)
 		}
 
-		item, err = repo.GetById(item.Id)
+		item, err = repo.GetById("test-user-id", item.Id)
 
 		if err != nil {
 			t.Fatalf("Expected not to err, got %v", err)
@@ -851,7 +895,7 @@ func TestDynamoDelete(t *testing.T) {
 
 		dummyId := ""
 
-		err = repo.Delete(dummyId)
+		err = repo.Delete("test-user-id", dummyId)
 
 		if err == nil {
 			t.Fatalf("Expected an error")
@@ -885,7 +929,7 @@ func TestDynamoDelete(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		err = repo.Delete("dummy-id-123")
+		err = repo.Delete("test-user-id", "dummy-id-123")
 
 		if err == nil {
 			t.Fatal("Expected an error")
@@ -917,7 +961,7 @@ func TestDynamoDelete(t *testing.T) {
 
 		dummyId := "dummy-id-123"
 
-		err = repo.Delete(dummyId)
+		err = repo.Delete("test-user-id", dummyId)
 
 		if err == nil {
 			t.Fatalf("Expected an error")
@@ -958,7 +1002,7 @@ func TestDynamoDelete(t *testing.T) {
 			Price:        2000,
 		}
 
-		saved, err := repo.Save(item)
+		saved, err := repo.Save("test-user-id", item)
 		if err != nil {
 			t.Fatalf("Expected no error saving item, got %v", err)
 		}
@@ -966,7 +1010,7 @@ func TestDynamoDelete(t *testing.T) {
 			t.Fatal("Expected saved item to have an ID")
 		}
 
-		items, err := repo.GetAll()
+		items, err := repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Fatalf("Expected no error getting items after save, got %v", err)
@@ -974,13 +1018,13 @@ func TestDynamoDelete(t *testing.T) {
 
 		itemCountPostSave := len(items)
 
-		err = repo.Delete(saved.Id)
+		err = repo.Delete("test-user-id", saved.Id)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
 		}
 
-		items, err = repo.GetAll()
+		items, err = repo.GetAll("test-user-id")
 
 		if err != nil {
 			t.Fatalf("Expected no error getting items after delete, got %v", err)
@@ -1018,7 +1062,7 @@ func TestDynamoExists(t *testing.T) {
 
 		id := ""
 
-		exists, err := repo.Exists(id)
+		exists, err := repo.Exists("test-user-id", id)
 
 		if exists {
 			t.Error("Expected exists = false")
@@ -1051,7 +1095,7 @@ func TestDynamoExists(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		exists, err := repo.Exists("dummy-id-123")
+		exists, err := repo.Exists("test-user-id", "dummy-id-123")
 
 		if exists {
 			t.Error("Expected exists = false")
@@ -1082,7 +1126,7 @@ func TestDynamoExists(t *testing.T) {
 			t.Fatal("repo should not be null")
 		}
 
-		exists, err := repo.Exists("does-not-exist")
+		exists, err := repo.Exists("test-user-id", "does-not-exist")
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -1121,7 +1165,7 @@ func TestDynamoExists(t *testing.T) {
 			Price:        2000,
 		}
 
-		saved, err := repo.Save(item)
+		saved, err := repo.Save("test-user-id", item)
 		if err != nil {
 			t.Fatalf("Expected no error saving item, got %v", err)
 		}
@@ -1129,7 +1173,7 @@ func TestDynamoExists(t *testing.T) {
 			t.Fatal("Expected saved item to have an ID")
 		}
 
-		exists, err := repo.Exists(saved.Id)
+		exists, err := repo.Exists("test-user-id", saved.Id)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
@@ -1181,7 +1225,7 @@ func TestDynamoConcurrentSaves(t *testing.T) {
 					Price:        domain.Pence(1000 + index),
 				}
 
-				_, err := repo.Save(clothingItem)
+				_, err := repo.Save("test-user-id", clothingItem)
 
 				if err != nil {
 					t.Errorf("Goroutine %d: Failed to save item: %v", index, err)
@@ -1193,7 +1237,7 @@ func TestDynamoConcurrentSaves(t *testing.T) {
 
 		wg.Wait()
 
-		allSavedItems, err := repo.GetAll()
+		allSavedItems, err := repo.GetAll("test-user-id")
 		if err != nil {
 			t.Fatalf("Failed to retrieve all items after concurrent saves: %v", err)
 		}
@@ -1238,7 +1282,7 @@ func TestDynamoConcurrentGetAll(t *testing.T) {
 				Size:         "S",
 				Price:        domain.Pence(500 + i),
 			}
-			_, err := repo.Save(clothingItem)
+			_, err := repo.Save("test-user-id", clothingItem)
 			if err != nil {
 				t.Fatalf("Failed to setup initial item for concurrent GetAll test: %v", err)
 			}
@@ -1251,7 +1295,7 @@ func TestDynamoConcurrentGetAll(t *testing.T) {
 			go func(readIndex int) {
 				defer wg.Done()
 
-				items, err := repo.GetAll()
+				items, err := repo.GetAll("test-user-id")
 				if err != nil {
 					t.Errorf("Goroutine %d: Failed to retrieve items: %v", readIndex, err)
 					return
@@ -1265,7 +1309,7 @@ func TestDynamoConcurrentGetAll(t *testing.T) {
 
 		wg.Wait()
 
-		finalItems, err := repo.GetAll()
+		finalItems, err := repo.GetAll("test-user-id")
 		if err != nil {
 			t.Fatalf("Failed final GetAll check: %v", err)
 		}

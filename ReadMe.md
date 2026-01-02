@@ -60,9 +60,11 @@ aws configure
 aws dynamodb create-table \
     --table-name MyClothesTable \
     --attribute-definitions \
+        AttributeName=UserId,AttributeType=S \
         AttributeName=Id,AttributeType=S \
     --key-schema \
-        AttributeName=Id,KeyType=HASH \
+        AttributeName=UserId,KeyType=HASH \
+        AttributeName=Id,KeyType=RANGE \
     --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5 \
     --endpoint-url http://localhost:4566 \
     --region eu-west-1

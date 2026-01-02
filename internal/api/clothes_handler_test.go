@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"clothes_management/internal/domain"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,7 +34,7 @@ type DummyClothingRepo struct {
 	ShouldExist      bool
 }
 
-func (d *DummyClothingRepo) Save(clothing domain.Clothing) (domain.Clothing, error) {
+func (d *DummyClothingRepo) Save(userId string, clothing domain.Clothing) (domain.Clothing, error) {
 	if d.SaveError != nil {
 		return domain.Clothing{}, d.SaveError
 	}
@@ -49,7 +50,7 @@ func (d *DummyClothingRepo) Save(clothing domain.Clothing) (domain.Clothing, err
 	return clothing, nil
 }
 
-func (d *DummyClothingRepo) GetAll() ([]domain.Clothing, error) {
+func (d *DummyClothingRepo) GetAll(userId string) ([]domain.Clothing, error) {
 	if d.GetAllError != nil {
 		return []domain.Clothing{}, d.GetAllError
 	}
@@ -63,7 +64,7 @@ func (d *DummyClothingRepo) GetAll() ([]domain.Clothing, error) {
 	return items, nil
 }
 
-func (d *DummyClothingRepo) GetById(id string) (domain.Clothing, error) {
+func (d *DummyClothingRepo) GetById(userId, id string) (domain.Clothing, error) {
 	d.GetByIdCalledId = id
 
 	if d.GetByIdError != nil {
@@ -76,7 +77,7 @@ func (d *DummyClothingRepo) GetById(id string) (domain.Clothing, error) {
 	return itemCopy, nil
 }
 
-func (d *DummyClothingRepo) Update(clothing domain.Clothing) (domain.Clothing, error) {
+func (d *DummyClothingRepo) Update(userId string, clothing domain.Clothing) (domain.Clothing, error) {
 	d.UpdatedClothing = &clothing
 	if d.UpdateError != nil {
 		return domain.Clothing{}, d.UpdateError
@@ -91,7 +92,7 @@ func (d *DummyClothingRepo) Update(clothing domain.Clothing) (domain.Clothing, e
 	return itemCopy, nil
 }
 
-func (d *DummyClothingRepo) Delete(id string) error {
+func (d *DummyClothingRepo) Delete(userId, id string) error {
 	d.DeletedID = id
 
 	if d.DeleteError != nil {
@@ -100,7 +101,7 @@ func (d *DummyClothingRepo) Delete(id string) error {
 	return nil
 }
 
-func (d *DummyClothingRepo) Exists(id string) (bool, error) {
+func (d *DummyClothingRepo) Exists(userId, id string) (bool, error) {
 	if d.ExistsError != nil {
 		return false, d.ExistsError
 	}
@@ -277,7 +278,9 @@ func TestCreateClothing(t *testing.T) {
 	t.Run("Given POST request, with no or empty body, should return an error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", http.NoBody)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", http.NoBody)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -302,7 +305,9 @@ func TestCreateClothing(t *testing.T) {
 	t.Run("Given POST request, where data isn't json, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", strings.NewReader("data"))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", strings.NewReader("data"))
 
 		dummyRepo := &DummyClothingRepo{}
 		apiHandler := &API{
@@ -339,7 +344,9 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
 		dummyRepo := &DummyClothingRepo{}
 		apiHandler := &API{
@@ -378,7 +385,9 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
 		dummyRepo := &DummyClothingRepo{}
 		apiHandler := &API{
@@ -416,7 +425,8 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
 		dummyRepo := &DummyClothingRepo{}
 		apiHandler := &API{
@@ -454,7 +464,8 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
 		dummyRepo := &DummyClothingRepo{
 			SaveError: fmt.Errorf("A dummy error"),
@@ -495,7 +506,8 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
 
-		r := httptest.NewRequest(http.MethodPost, "/clothes", bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 		expectedID := "generated-test-id-1"
 		dummyRepo := &DummyClothingRepo{
 			NextId: expectedID,
@@ -551,7 +563,9 @@ func TestGetClothing(t *testing.T) {
 	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -575,7 +589,9 @@ func TestGetClothing(t *testing.T) {
 
 	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/clothes", nil)
+
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes", nil)
 
 		dummyRepo := &DummyClothingRepo{
 			GetAllError: errors.New("Some Type of Error"),
@@ -602,7 +618,8 @@ func TestGetClothing(t *testing.T) {
 
 	t.Run("Given GET request, with no issues with retrieval, should return success", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/clothes", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes", nil)
 
 		expectedItems := []domain.Clothing{
 			{Id: "id-1", ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
@@ -649,8 +666,8 @@ func TestGetClothingById(t *testing.T) {
 
 	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-
-		r := httptest.NewRequest(http.MethodTrace, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -675,7 +692,9 @@ func TestGetClothingById(t *testing.T) {
 	t.Run("Given missing id, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodGet, "/clothes/", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -700,7 +719,8 @@ func TestGetClothingById(t *testing.T) {
 	t.Run("Given empty or whitespace id, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodGet, "/clothes/", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
@@ -725,7 +745,8 @@ func TestGetClothingById(t *testing.T) {
 
 	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
@@ -755,7 +776,8 @@ func TestGetClothingById(t *testing.T) {
 
 	t.Run("Given GET request, with no issues with retrieval and item does not exists, should  return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
@@ -783,7 +805,8 @@ func TestGetClothingById(t *testing.T) {
 
 	t.Run("Given GET request, with no issues with retrieval and item exists, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
@@ -839,8 +862,8 @@ func TestGetClothingById(t *testing.T) {
 func TestUpdateClothing(t *testing.T) {
 	t.Run("Given request method is not allowed, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-
-		r := httptest.NewRequest(http.MethodTrace, "/clothes/test-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -865,7 +888,9 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given PUT request, with empty or whitespace id, should return an error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		r := httptest.NewRequest(http.MethodPut, "/clothes/test-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
@@ -893,7 +918,9 @@ func TestUpdateClothing(t *testing.T) {
 
 		id := "test-id"
 
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -921,7 +948,9 @@ func TestUpdateClothing(t *testing.T) {
 
 		id := "test-id"
 
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, strings.NewReader("data"))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, strings.NewReader("data"))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -961,8 +990,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -1004,8 +1033,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -1047,8 +1076,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+urlId, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+urlId, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": urlId})
 
@@ -1089,8 +1118,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -1131,8 +1160,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
@@ -1177,8 +1206,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		dummyRepo := &DummyClothingRepo{
@@ -1230,8 +1259,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
@@ -1311,8 +1340,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPatch, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPatch, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
@@ -1392,8 +1421,8 @@ func TestUpdateClothing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal json: %v", err)
 		}
-
-		r := httptest.NewRequest(http.MethodPost, "/clothes/"+id, bytes.NewReader(body))
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
@@ -1475,8 +1504,8 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given missing id, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-
-		r := httptest.NewRequest(http.MethodDelete, "/clothes/", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 
 		dummyRepo := &DummyClothingRepo{}
@@ -1500,8 +1529,8 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given empty or whitespace id, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-
-		r := httptest.NewRequest(http.MethodDelete, "/clothes/", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
@@ -1526,7 +1555,8 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given DELETE request, with issues with delete, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
@@ -1556,7 +1586,8 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given DELETE request, when id does not exist, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
@@ -1585,7 +1616,8 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given DELETE request, with no issues with delete, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		r := httptest.NewRequest(http.MethodDelete, "/clothes/legit-id", nil)
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 

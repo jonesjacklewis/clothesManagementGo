@@ -7,6 +7,7 @@ import (
 
 type Clothing struct {
 	Id           string `json:"id" dynamodbav:"Id"`
+	UserId       string `json:"userId" dynamodbav:"UserId"`
 	ClothingType string `json:"clothingType" dynamodbav:"ClothingType"`
 	Description  string `json:"description" dynamodbav:"Description"`
 	Brand        string `json:"brand" dynamodbav:"Brand"`

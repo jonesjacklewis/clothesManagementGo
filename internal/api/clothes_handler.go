@@ -20,6 +20,18 @@ func (a *API) CreateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userId, ok := r.Context().Value(UserIDContextKey).(string)
+
+	if !ok {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	if strings.TrimSpace(userId) == "" {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
 	if r.Body == nil || r.Body == http.NoBody {
 		http.Error(w, "Request body must not be empty or missing", http.StatusBadRequest)
 		return
@@ -62,7 +74,7 @@ func (a *API) CreateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clothing, err = a.Repo.Save(clothing)
+	clothing, err = a.Repo.Save(userId, clothing)
 
 	if err != nil {
 		log.Print(err)
@@ -85,7 +97,19 @@ func (a *API) GetClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clothingItems, err := a.Repo.GetAll()
+	userId, ok := r.Context().Value(UserIDContextKey).(string)
+
+	if !ok {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	if strings.TrimSpace(userId) == "" {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	clothingItems, err := a.Repo.GetAll(userId)
 
 	if err != nil {
 		log.Print(err)
@@ -106,6 +130,18 @@ func (a *API) GetClothingById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userId, ok := r.Context().Value(UserIDContextKey).(string)
+
+	if !ok {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	if strings.TrimSpace(userId) == "" {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
 	vars := mux.Vars(r)
 	id, exists := vars["id"]
 
@@ -121,7 +157,7 @@ func (a *API) GetClothingById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := a.Repo.Exists(id)
+	exists, err := a.Repo.Exists(userId, id)
 
 	if err != nil {
 		log.Print(err)
@@ -134,7 +170,7 @@ func (a *API) GetClothingById(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	item, err := a.Repo.GetById(id)
+	item, err := a.Repo.GetById(userId, id)
 
 	if err != nil {
 		log.Print(err)
@@ -158,6 +194,18 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 
 	if !slices.Contains(allowedMethods, r.Method) {
 		http.Error(w, fmt.Sprintf("Unauthorised method %s.", r.Method), http.StatusMethodNotAllowed)
+		return
+	}
+
+	userId, ok := r.Context().Value(UserIDContextKey).(string)
+
+	if !ok {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	if strings.TrimSpace(userId) == "" {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
 		return
 	}
 
@@ -227,7 +275,7 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err = a.Repo.Exists(clothing.Id)
+	exists, err = a.Repo.Exists(userId, clothing.Id)
 
 	if err != nil {
 		log.Print(err)
@@ -240,7 +288,7 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clothing, err = a.Repo.Update(clothing)
+	clothing, err = a.Repo.Update(userId, clothing)
 
 	if err != nil {
 		log.Print(err)
@@ -262,6 +310,18 @@ func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userId, ok := r.Context().Value(UserIDContextKey).(string)
+
+	if !ok {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
+	if strings.TrimSpace(userId) == "" {
+		http.Error(w, "UserID not provided", http.StatusUnauthorized)
+		return
+	}
+
 	vars := mux.Vars(r)
 	id, exists := vars["id"]
 
@@ -277,7 +337,7 @@ func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	exists, err := a.Repo.Exists(id)
+	exists, err := a.Repo.Exists(userId, id)
 
 	if err != nil {
 		log.Print(err)
@@ -290,7 +350,7 @@ func (a *API) DeleteClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = a.Repo.Delete(id)
+	err = a.Repo.Delete(userId, id)
 
 	if err != nil {
 		log.Print(err)
