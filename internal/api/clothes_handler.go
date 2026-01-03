@@ -74,6 +74,8 @@ func (a *API) CreateClothing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	clothing.UserId = userId
+
 	clothing, err = a.Repo.Save(userId, clothing)
 
 	if err != nil {
@@ -266,6 +268,15 @@ func (a *API) UpdateClothing(w http.ResponseWriter, r *http.Request) {
 
 	if clothing.Id == "" {
 		clothing.Id = id
+	}
+
+	if clothing.UserId == "" {
+		clothing.UserId = userId
+	}
+
+	if clothing.UserId != userId {
+		http.Error(w, fmt.Sprintf("Body has UserId = %s, but UserId = %s, resulting is mismatch", clothing.UserId, userId), http.StatusBadRequest)
+		return
 	}
 
 	err = clothing.Validate()

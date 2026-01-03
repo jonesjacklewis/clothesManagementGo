@@ -1199,6 +1199,51 @@ func TestUpdateClothing(t *testing.T) {
 		}
 	})
 
+	t.Run("Given PUT request, where clothes userId and userId do not match, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		bodyUserId := "test-user-id"
+		suppliedUserId := bodyUserId + uuid.New().String()
+		itemId := uuid.New().String()
+		var jsonMap map[string]any = map[string]any{
+			"id":           itemId,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+			"userId":       bodyUserId,
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, suppliedUserId)
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+itemId, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": itemId})
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("Expected %d got %d", http.StatusBadRequest, resp.StatusCode)
+		}
+
+		expectedMessage := fmt.Sprintf("Body has UserId = %s, but UserId = %s, resulting is mismatch", bodyUserId, suppliedUserId)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
 	t.Run("Given PUT request, where data is structurally valid, but breaks validation, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
