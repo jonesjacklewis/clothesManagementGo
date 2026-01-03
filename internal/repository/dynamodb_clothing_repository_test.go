@@ -372,6 +372,42 @@ func TestDynamoSave(t *testing.T) {
 }
 
 func TestDynamoGetAll(t *testing.T) {
+
+	t.Run("Given empty user Id, should return an empty list and error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		items, err := repo.GetAll("")
+
+		if len(items) > 0 {
+			t.Errorf("Expected no items, got %d", len(items))
+		}
+
+		if err == nil {
+			t.Fatalf("Expected to get err, but didn't")
+		}
+
+		expectedMessage := "User ID must not be empty or whitespace"
+
+		if !strings.Contains(err.Error(), expectedMessage) {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
+	})
+
 	t.Run("When there are no clothing items, GetAll should return an empty list and no errors", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
@@ -565,6 +601,55 @@ func TestDynamoGetAll(t *testing.T) {
 			clearDynamoDBTable(t, client, dynamoTableName)
 		})
 	})
+
+	t.Run("When there is 1 clothing item, but for a different user, GetAll should return an list no items and no errors", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		item := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		_, err = repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Errorf("Expected no error when saving %s, got %v", item.Description, err)
+		}
+
+		items, err := repo.GetAll("test-user-id-1")
+
+		if err != nil {
+			t.Errorf("Expected not error, got %v", err)
+		}
+
+		if len(items) != 0 {
+			t.Fatalf("Expected 0 item, got %d", len(items))
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+
+	})
 }
 
 func TestDynamoGetById(t *testing.T) {
@@ -603,6 +688,37 @@ func TestDynamoGetById(t *testing.T) {
 
 	})
 
+	t.Run("When userId is empty, GetById should return an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		_, err = repo.GetById("", "dummy-id-123")
+
+		if err == nil {
+			t.Errorf("Expected an error %v", err)
+		}
+
+		expectedMessage := "User ID must not be empty or whitespace"
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
+	})
+
 	t.Run("When the item doesn't exist GetById should return an error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
@@ -633,6 +749,50 @@ func TestDynamoGetById(t *testing.T) {
 			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
 		}
 
+	})
+
+	t.Run("When the item doesn't exist for user, GetById should return error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		savedItem, err := repo.Save("test-user-id", domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		})
+
+		if err != nil {
+			t.Errorf("Expected no error on save item, got %v", err)
+		}
+
+		_, err = repo.GetById("test-user-id-1", savedItem.Id)
+
+		if err == nil {
+			t.Errorf("Expected an error")
+		}
+
+		expectedMessage := "No item found for id " + savedItem.Id
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
 	})
 
 	t.Run("When the item exists, GetById should return the item", func(t *testing.T) {
@@ -681,6 +841,7 @@ func TestDynamoGetById(t *testing.T) {
 }
 
 func TestDynamoUpdate(t *testing.T) {
+
 	t.Run("When the item isn't valid should return an error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
@@ -723,6 +884,46 @@ func TestDynamoUpdate(t *testing.T) {
 			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
 		}
 
+	})
+
+	t.Run("When userId is empty, GetById should return an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		item := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        domain.Pence(2000),
+		}
+
+		_, err = repo.Update("", item)
+
+		if err == nil {
+			t.Errorf("Expected an error %v", err)
+		}
+
+		expectedMessage := "User ID must not be empty or whitespace"
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
 	})
 
 	t.Run("When the item doesn't have an id should return an error", func(t *testing.T) {
@@ -909,6 +1110,37 @@ func TestDynamoDelete(t *testing.T) {
 
 	})
 
+	t.Run("When userId is empty, Delete should return an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		err = repo.Delete("", "dummy-id-123")
+
+		if err == nil {
+			t.Errorf("Expected an error %v", err)
+		}
+
+		expectedMessage := "User ID must not be empty or whitespace"
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
+	})
+
 	t.Run("Given table doesn't exist, should return an error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, true)
 
@@ -973,6 +1205,50 @@ func TestDynamoDelete(t *testing.T) {
 			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
 		}
 
+	})
+
+	t.Run("When the item doesn't exist for user, Delete should return error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		savedItem, err := repo.Save("test-user-id", domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		})
+
+		if err != nil {
+			t.Errorf("Expected no error on save item, got %v", err)
+		}
+
+		err = repo.Delete("test-user-id-1", savedItem.Id)
+
+		if err == nil {
+			t.Errorf("Expected an error")
+		}
+
+		expectedMessage := fmt.Sprintf("Item with id %s does not exist", savedItem.Id)
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
 	})
 
 	t.Run("When ID does exist, should delete succesfully", func(t *testing.T) {
@@ -1077,6 +1353,39 @@ func TestDynamoExists(t *testing.T) {
 		}
 	})
 
+	t.Run("When userId is empty, Exists should return false and an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		exists, err := repo.Exists("", "dummy-id-123")
+		if exists {
+			t.Error("Expected exists = false")
+		}
+		if err == nil {
+			t.Errorf("Expected an error %v", err)
+		}
+
+		expectedMessage := "User ID must not be empty or whitespace"
+
+		if err.Error() != expectedMessage {
+			t.Errorf("Expected %s got %s", expectedMessage, err.Error())
+		}
+	})
+
 	t.Run("Given table doesn't exist, should return false and an error", func(t *testing.T) {
 		client := setupLocalStackDynamoDBClient(t, false)
 
@@ -1127,6 +1436,53 @@ func TestDynamoExists(t *testing.T) {
 		}
 
 		exists, err := repo.Exists("test-user-id", "does-not-exist")
+
+		if err != nil {
+			t.Fatalf("Expected no error, got %v", err)
+		}
+		if exists {
+			t.Error("Expected exists = false")
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+	})
+
+	t.Run("Given item does not exist for user, should return false and no error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		item := domain.Clothing{
+			ClothingType: "Jumper",
+			Description:  "This Jumper",
+			Store:        "This Store",
+			Size:         "L",
+			Brand:        "XYZ",
+			Price:        2000,
+		}
+
+		saved, err := repo.Save("test-user-id", item)
+		if err != nil {
+			t.Fatalf("Expected no error saving item, got %v", err)
+		}
+		if saved.Id == "" {
+			t.Fatal("Expected saved item to have an ID")
+		}
+
+		exists, err := repo.Exists("test-user-id-1", saved.Id)
 
 		if err != nil {
 			t.Fatalf("Expected no error, got %v", err)
