@@ -275,6 +275,31 @@ func TestCreateClothing(t *testing.T) {
 		}
 	})
 
+	t.Run("Given POST request, with no userId provided, should return an error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodPost, "/clothes", http.NoBody)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.CreateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected a %d error, got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "UserID not provided"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expecteed %s got %s", expectedMessage, w.Body.String())
+		}
+	})
+
 	t.Run("Given POST request, with no or empty body, should return an error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
@@ -587,6 +612,31 @@ func TestGetClothing(t *testing.T) {
 		}
 	})
 
+	t.Run("Given GET request, but no userID provided, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodGet, "/clothes", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected a %d error, got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "UserID not provided"
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
 	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
@@ -683,6 +733,30 @@ func TestGetClothingById(t *testing.T) {
 		}
 
 		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given GET request, but no userId provided, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected a %d error, got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "UserID not provided"
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
@@ -879,6 +953,31 @@ func TestUpdateClothing(t *testing.T) {
 		}
 
 		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given method PUT, but no userId provided, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodPut, "/clothes/test-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected a %d error, got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "UserID not provided"
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
@@ -1496,6 +1595,31 @@ func TestDeleteClothing(t *testing.T) {
 		}
 
 		expectedMessage := fmt.Sprintf("Unauthorised method %s.", http.MethodTrace)
+
+		if !strings.Contains(w.Body.String(), expectedMessage) {
+			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
+		}
+	})
+
+	t.Run("Given DELETE request, but no userId provided, should return error", func(t *testing.T) {
+		w := httptest.NewRecorder()
+
+		r := httptest.NewRequest(http.MethodDelete, "/clothes/test-id", nil)
+		r.Header.Set("Content-Type", "application/json")
+
+		dummyRepo := &DummyClothingRepo{}
+		apiHandler := &API{
+			Repo: dummyRepo,
+		}
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Errorf("Expected a %d error, got %d", http.StatusUnauthorized, resp.StatusCode)
+		}
+
+		expectedMessage := "UserID not provided"
 
 		if !strings.Contains(w.Body.String(), expectedMessage) {
 			t.Errorf("Expected %s, got %s", expectedMessage, w.Body.String())
