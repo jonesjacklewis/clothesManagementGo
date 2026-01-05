@@ -1072,6 +1072,61 @@ func TestDynamoUpdate(t *testing.T) {
 
 	})
 
+	t.Run("When provided clothing item has a UserId that mismatches the provided userId, should return an error", func(t *testing.T) {
+		client := setupLocalStackDynamoDBClient(t, true)
+
+		dynamoTableName := os.Getenv("DYNAMODB_TABLE_NAME")
+		if dynamoTableName == "" {
+			t.Fatal("ERROR: DYNAMODB_TABLE_NAME environment variable not set. Please set it in .env_test or your shell.")
+		}
+
+		repo, err := NewDynamoDBClothingRepository(client, dynamoTableName)
+
+		if err != nil {
+			t.Fatalf("Expected no err on NewDynamoDBClothingRepository, got %v", err)
+		}
+
+		if repo == nil {
+			t.Fatal("repo should not be null")
+		}
+
+		firstUserId := "test-user-1"
+		itemForFirstUser := domain.Clothing{
+			ClothingType: "Jacket",
+			Description:  "Leather Jacket",
+			Store:        "Fashion Co",
+			Size:         "M",
+			Brand:        "TopBrand",
+			Price:        5000,
+		}
+
+		savedItem, err := repo.Save(firstUserId, itemForFirstUser)
+
+		if err != nil {
+			t.Fatalf("Expected no err on Save, got %v", err)
+		}
+
+		updatedClothing := savedItem
+		updatedClothing.Description = "Updated Description by Second User"
+
+		secondUserId := "test-user-2"
+
+		_, err = repo.Update(secondUserId, updatedClothing)
+
+		if err == nil {
+			t.Error("Expected an error for User ID mismatch, but got nil")
+		}
+
+		expectedMessage := "Mismatch of user ID"
+		if !strings.Contains(err.Error(), expectedMessage) {
+			t.Errorf("Expected error to contain %q, got %q", expectedMessage, err.Error())
+		}
+
+		t.Cleanup(func() {
+			clearDynamoDBTable(t, client, dynamoTableName)
+		})
+	})
+
 }
 
 func TestDynamoDelete(t *testing.T) {
