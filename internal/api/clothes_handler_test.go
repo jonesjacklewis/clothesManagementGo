@@ -612,6 +612,76 @@ func TestGetClothing(t *testing.T) {
 			t.Errorf("Expected %d items, got %d", len(expectedItems), len(data))
 		}
 	})
+
+	t.Run("Given GET request with multiple users, should only return items for the authenticated user", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes", nil)
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		apiHandler.GetClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Expeted %d got %d", http.StatusOK, resp.StatusCode)
+		}
+
+		var responseBody map[string]any
+		err := json.Unmarshal(w.Body.Bytes(), &responseBody)
+
+		if err != nil {
+			t.Fatalf("Failed to unmarshal response body: %v", err)
+		}
+
+		if responseBody["success"] != true {
+			t.Errorf("Expected success: true, got %v", responseBody["success"])
+		}
+
+		data, ok := responseBody["data"].([]any)
+		if !ok {
+			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
+		}
+
+		if len(data) != len(itemIdsByUser["test-user-id-1"]) {
+			t.Errorf("Expected %d items, got %d", len(itemIdsByUser["test-user-id-1"]), len(data))
+		}
+	})
 }
 
 func TestGetClothingById(t *testing.T) {
@@ -835,6 +905,67 @@ func TestGetClothingById(t *testing.T) {
 
 		if data["id"] != item.Id {
 			t.Errorf("Expected returned ID legit-id, got %v", data["id"])
+		}
+	})
+
+	t.Run("Given GET request for an ID belonging to another user, should return 404 Not Found", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		id := itemIdsByUser["test-user-id-2"][0]
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/"+id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		apiHandler.GetClothingById(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID " + id
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
 		}
 	})
 }
@@ -1518,6 +1649,234 @@ func TestUpdateClothing(t *testing.T) {
 			t.Errorf("Expected returned userId %s, got %v", "test-user-id", data["userId"])
 		}
 	})
+
+	t.Run("Given PUT request for an ID belonging to another user, should return 404 Not Found", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		id := itemIdsByUser["test-user-id-2"][0]
+
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID " + id
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+	})
+
+	t.Run("Given PATCH request for an ID belonging to another user, should return 404 Not Found", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		id := itemIdsByUser["test-user-id-2"][0]
+
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPatch, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID " + id
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+	})
+
+	t.Run("Given POST request for an ID belonging to another user, should return 404 Not Found", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		id := itemIdsByUser["test-user-id-2"][0]
+
+		var jsonMap map[string]any = map[string]any{
+			"id":           id,
+			"pricePence":   2000,
+			"clothingType": "Jumper",
+			"description":  "Red loosefit jumper",
+			"brand":        "A&B",
+			"store":        "Totlly Real Store",
+			"size":         "Medium",
+		}
+
+		body, err := json.Marshal(jsonMap)
+		if err != nil {
+			t.Fatalf("failed to marshal json: %v", err)
+		}
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes/"+id, bytes.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		apiHandler.UpdateClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID " + id
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
+		}
+	})
 }
 
 func TestDeleteClothing(t *testing.T) {
@@ -1720,6 +2079,67 @@ func TestDeleteClothing(t *testing.T) {
 
 		if resp.StatusCode != http.StatusNoContent {
 			t.Errorf("Expeted %d got %d", http.StatusOK, resp.StatusCode)
+		}
+	})
+
+	t.Run("Given DELETE request for an ID belonging to another user, should return 404 Not Found", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id-1")
+
+		items := []domain.Clothing{
+			{ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
+			{ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+			{ClothingType: "Trousers", Description: "Blue Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
+		}
+		repo := repository.NewInMemoryClothingRepository()
+		apiHandler := &API{
+			Repo: repo,
+		}
+
+		var itemIdsByUser map[string][]string = map[string][]string{}
+
+		for index, item := range items {
+			var userId string
+
+			if index%2 == 0 {
+				userId = "test-user-id-1"
+			} else {
+				userId = "test-user-id-2"
+			}
+			idItem, err := repo.Save(userId, item)
+
+			if err != nil {
+				t.Fatalf("Expected no error got %v", err)
+			}
+
+			_, exists := itemIdsByUser[userId]
+
+			if !exists {
+				itemIdsByUser[userId] = []string{}
+			}
+
+			itemIdsByUser[userId] = append(itemIdsByUser[userId], idItem.Id)
+
+		}
+
+		id := itemIdsByUser["test-user-id-2"][0]
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/"+id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": id})
+
+		apiHandler.DeleteClothing(w, r)
+
+		resp := w.Result()
+
+		if resp.StatusCode != http.StatusNotFound {
+			t.Errorf("Expeted %d got %d", http.StatusNotFound, resp.StatusCode)
+		}
+
+		expected := "Clothing item not found for ID " + id
+
+		if !strings.Contains(w.Body.String(), expected) {
+			t.Errorf("Expected %s got %s", expected, w.Body.String())
 		}
 	})
 }
