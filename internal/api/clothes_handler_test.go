@@ -477,6 +477,10 @@ func TestCreateClothing(t *testing.T) {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
 		}
 
+		if data["userId"] != "test-user-id" {
+			t.Errorf("Expected returned userId %s, got %v", "test-user-id", data["userId"])
+		}
+
 	})
 }
 
@@ -1356,6 +1360,10 @@ func TestUpdateClothing(t *testing.T) {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
 		}
 
+		if data["userId"] != "test-user-id" {
+			t.Errorf("Expected returned userId %s, got %v", "test-user-id", data["userId"])
+		}
+
 	})
 
 	t.Run("Given PATCH request, with valid data and no issue on save, should have success", func(t *testing.T) {
@@ -1429,6 +1437,10 @@ func TestUpdateClothing(t *testing.T) {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
 		}
 
+		if data["userId"] != "test-user-id" {
+			t.Errorf("Expected returned userId %s, got %v", "test-user-id", data["userId"])
+		}
+
 	})
 
 	t.Run("Given POST request, with valid data and no issue on save, should have success", func(t *testing.T) {
@@ -1500,6 +1512,10 @@ func TestUpdateClothing(t *testing.T) {
 
 		if data["clothingType"] != jsonMap["clothingType"] {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
+		}
+
+		if data["userId"] != "test-user-id" {
+			t.Errorf("Expected returned userId %s, got %v", "test-user-id", data["userId"])
 		}
 	})
 }
