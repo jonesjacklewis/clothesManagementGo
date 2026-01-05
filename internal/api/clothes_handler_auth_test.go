@@ -1,6 +1,7 @@
 package api
 
 import (
+	"clothes_management/internal/repository"
 	"crypto/rsa"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,7 @@ import (
 
 type TestServer struct {
 	Server             *httptest.Server
-	Repo               *DummyClothingRepo
+	Repo               *repository.InMemoryClothingRepository
 	AuthMw             *AuthMiddleware
 	CognitoAppClientID string
 	PrivateKey         *rsa.PrivateKey
@@ -35,7 +36,7 @@ func setupTestServer(t *testing.T) TestServer {
 	authMW.jwksCache = mockJwks
 	authMW.jwksMu.Unlock()
 
-	clothingRepo := &DummyClothingRepo{}
+	clothingRepo := repository.NewInMemoryClothingRepository()
 
 	apiHandler := &API{
 		Repo:               clothingRepo,

@@ -4,6 +4,7 @@ import (
 	"clothes_management/internal/domain"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -12,8 +13,44 @@ import (
 
 type InMemoryClothingRepository struct {
 	// items contains a key for userId, which contains a map of clothingItems keyed by its own id
-	items map[string]map[string]domain.Clothing
-	mu    sync.Mutex
+	items               map[string]map[string]domain.Clothing
+	issueOnSaveError    bool
+	issueOnGetAllError  bool
+	issueOnGetByIdError bool
+	issueOnUpdateError  bool
+	issueOnDeleteError  bool
+	issueOnExistsError  bool
+	mu                  sync.Mutex
+}
+
+func (r *InMemoryClothingRepository) SetIssueOnSaveError(value bool) {
+	r.mu.Lock()
+	r.issueOnSaveError = value
+	r.mu.Unlock()
+}
+
+func (r *InMemoryClothingRepository) SetIssueOnGetAllError(value bool) {
+	r.mu.Lock()
+	r.issueOnGetAllError = value
+	r.mu.Unlock()
+}
+
+func (r *InMemoryClothingRepository) SetIssueOnGetByIdError(value bool) {
+	r.mu.Lock()
+	r.issueOnGetByIdError = value
+	r.mu.Unlock()
+}
+
+func (r *InMemoryClothingRepository) SetIssueOnUpdateError(value bool) {
+	r.mu.Lock()
+	r.issueOnUpdateError = value
+	r.mu.Unlock()
+}
+
+func (r *InMemoryClothingRepository) SetIssueOnDeleteError(value bool) {
+	r.mu.Lock()
+	r.issueOnDeleteError = value
+	r.mu.Unlock()
 }
 
 func (r *InMemoryClothingRepository) Save(userId string, clothing domain.Clothing) (domain.Clothing, error) {
@@ -24,6 +61,10 @@ func (r *InMemoryClothingRepository) Save(userId string, clothing domain.Clothin
 
 	if err := clothing.Validate(); err != nil {
 		return domain.Clothing{}, err
+	}
+
+	if r.issueOnSaveError {
+		return domain.Clothing{}, errors.New("Error saving clothing item")
 	}
 
 	r.mu.Lock()
@@ -52,6 +93,10 @@ func (r *InMemoryClothingRepository) GetAll(userId string) ([]domain.Clothing, e
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if r.issueOnGetAllError {
+		return []domain.Clothing{}, errors.New("Error getting clothing items")
+	}
+
 	var items []domain.Clothing = []domain.Clothing{}
 
 	userItems, exists := r.items[userId]
@@ -72,8 +117,14 @@ func (r *InMemoryClothingRepository) GetById(userId, id string) (domain.Clothing
 		return domain.Clothing{}, errors.New("User ID must not be empty or whitespace")
 	}
 
+	log.Printf("r.issueOnError = %v", r.issueOnGetByIdError)
+
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	if r.issueOnGetByIdError {
+		return domain.Clothing{}, fmt.Errorf("Unable to get clothing for ID %s", id)
+	}
 
 	userItems, exists := r.items[userId]
 
@@ -97,6 +148,10 @@ func (r *InMemoryClothingRepository) Update(userId string, clothing domain.Cloth
 
 	if err := clothing.Validate(); err != nil {
 		return domain.Clothing{}, err
+	}
+
+	if r.issueOnUpdateError {
+		return domain.Clothing{}, errors.New("Error updating clothing item")
 	}
 
 	r.mu.Lock()
@@ -126,6 +181,10 @@ func (r *InMemoryClothingRepository) Delete(userId, id string) error {
 
 	if strings.TrimSpace(id) == "" {
 		return fmt.Errorf("ID cannot be empty or whitespace")
+	}
+
+	if r.issueOnDeleteError {
+		return fmt.Errorf("Unable to delete clothing for ID %s", id)
 	}
 
 	r.mu.Lock()

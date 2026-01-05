@@ -3,9 +3,9 @@ package api
 import (
 	"bytes"
 	"clothes_management/internal/domain"
+	"clothes_management/internal/repository"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,98 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
-
-type DummyClothingRepo struct {
-	ExpectedSaveItem *domain.Clothing
-	SaveError        error
-	NextId           string
-	AllItems         []domain.Clothing
-	GetAllError      error
-	GetByIdItem      *domain.Clothing
-	GetByIdError     error
-	GetByIdCalledId  string
-	UpdateError      error
-	UpdatedClothing  *domain.Clothing
-	UpdateReturnItem *domain.Clothing
-	DeleteError      error
-	DeletedID        string
-	ExistsError      error
-	ShouldExist      bool
-}
-
-func (d *DummyClothingRepo) Save(userId string, clothing domain.Clothing) (domain.Clothing, error) {
-	if d.SaveError != nil {
-		return domain.Clothing{}, d.SaveError
-	}
-
-	d.ExpectedSaveItem = &clothing
-
-	if d.NextId != "" {
-		clothing.Id = d.NextId
-	} else {
-		clothing.Id = "dummy-id-123"
-	}
-
-	return clothing, nil
-}
-
-func (d *DummyClothingRepo) GetAll(userId string) ([]domain.Clothing, error) {
-	if d.GetAllError != nil {
-		return []domain.Clothing{}, d.GetAllError
-	}
-
-	var items []domain.Clothing = []domain.Clothing{}
-
-	for _, item := range d.AllItems {
-		items = append(items, item)
-	}
-
-	return items, nil
-}
-
-func (d *DummyClothingRepo) GetById(userId, id string) (domain.Clothing, error) {
-	d.GetByIdCalledId = id
-
-	if d.GetByIdError != nil {
-		return domain.Clothing{}, d.GetByIdError
-	}
-	if d.GetByIdItem == nil {
-		return domain.Clothing{}, fmt.Errorf("item with id %s not found (dummy)", id)
-	}
-	itemCopy := *d.GetByIdItem
-	return itemCopy, nil
-}
-
-func (d *DummyClothingRepo) Update(userId string, clothing domain.Clothing) (domain.Clothing, error) {
-	d.UpdatedClothing = &clothing
-	if d.UpdateError != nil {
-		return domain.Clothing{}, d.UpdateError
-	}
-
-	if d.UpdateReturnItem != nil {
-		itemCopy := *d.UpdateReturnItem
-		return itemCopy, nil
-	}
-
-	itemCopy := clothing
-	return itemCopy, nil
-}
-
-func (d *DummyClothingRepo) Delete(userId, id string) error {
-	d.DeletedID = id
-
-	if d.DeleteError != nil {
-		return d.DeleteError
-	}
-	return nil
-}
-
-func (d *DummyClothingRepo) Exists(userId, id string) (bool, error) {
-	if d.ExistsError != nil {
-		return false, d.ExistsError
-	}
-	return d.ShouldExist, nil
-}
 
 func TestMissingMandatoryClothingField(t *testing.T) {
 	t.Run("Given no pricePence field, should return true and appropriate message", func(t *testing.T) {
@@ -256,9 +164,9 @@ func TestCreateClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodTrace, "/clothes", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -281,9 +189,9 @@ func TestCreateClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPost, "/clothes", http.NoBody)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -308,9 +216,9 @@ func TestCreateClothing(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", http.NoBody)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -334,9 +242,9 @@ func TestCreateClothing(t *testing.T) {
 
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", strings.NewReader("data"))
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -373,9 +281,9 @@ func TestCreateClothing(t *testing.T) {
 
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -414,9 +322,9 @@ func TestCreateClothing(t *testing.T) {
 
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -453,9 +361,9 @@ func TestCreateClothing(t *testing.T) {
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -492,11 +400,10 @@ func TestCreateClothing(t *testing.T) {
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
 
-		dummyRepo := &DummyClothingRepo{
-			SaveError: fmt.Errorf("A dummy error"),
-		}
+		repo := repository.NewInMemoryClothingRepository()
+		repo.SetIssueOnSaveError(true)
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -533,12 +440,10 @@ func TestCreateClothing(t *testing.T) {
 
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
 		r := httptest.NewRequestWithContext(ctx, http.MethodPost, "/clothes", bytes.NewReader(body))
-		expectedID := "generated-test-id-1"
-		dummyRepo := &DummyClothingRepo{
-			NextId: expectedID,
-		}
+
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.CreateClothing(w, r)
 
@@ -546,14 +451,6 @@ func TestCreateClothing(t *testing.T) {
 
 		if resp.StatusCode != http.StatusCreated {
 			t.Errorf("Expected %d got %d", http.StatusCreated, resp.StatusCode)
-		}
-
-		if dummyRepo.ExpectedSaveItem == nil {
-			t.Error("Expected Save to be called, but ExpectedSaveItem is nil")
-		} else {
-			if dummyRepo.ExpectedSaveItem.ClothingType != jsonMap["clothingType"] {
-				t.Errorf("Expected saved ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
-			}
 		}
 
 		var responseBody map[string]any
@@ -572,8 +469,8 @@ func TestCreateClothing(t *testing.T) {
 			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
 		}
 
-		if data["id"] != expectedID {
-			t.Errorf("Expected returned ID %s, got %v", expectedID, data["id"])
+		if data["id"] == "" {
+			t.Errorf("Expected id to be populated")
 		}
 
 		if data["clothingType"] != jsonMap["clothingType"] {
@@ -593,9 +490,9 @@ func TestGetClothing(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothing(w, r)
 
@@ -618,9 +515,9 @@ func TestGetClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/clothes", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothing(w, r)
 
@@ -643,11 +540,10 @@ func TestGetClothing(t *testing.T) {
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
 		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes", nil)
 
-		dummyRepo := &DummyClothingRepo{
-			GetAllError: errors.New("Some Type of Error"),
-		}
+		repo := repository.NewInMemoryClothingRepository()
+		repo.SetIssueOnGetAllError(true)
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.GetClothing(w, r)
@@ -675,11 +571,13 @@ func TestGetClothing(t *testing.T) {
 			{Id: "id-1", ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M"},
 			{Id: "id-2", ClothingType: "Trousers", Description: "Black Jeans", Brand: "Y", Store: "Store", Price: 2500, Size: "L"},
 		}
-		dummyRepo := &DummyClothingRepo{
-			AllItems: expectedItems,
-		}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
+		}
+
+		for _, item := range expectedItems {
+			repo.Save("test-user-id", item)
 		}
 
 		apiHandler.GetClothing(w, r)
@@ -720,9 +618,9 @@ func TestGetClothingById(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothingById(w, r)
 
@@ -744,9 +642,9 @@ func TestGetClothingById(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, "/clothes/legit-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothingById(w, r)
 
@@ -771,9 +669,9 @@ func TestGetClothingById(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothingById(w, r)
 
@@ -798,9 +696,9 @@ func TestGetClothingById(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.GetClothingById(w, r)
 
@@ -820,17 +718,25 @@ func TestGetClothingById(t *testing.T) {
 	t.Run("Given GET request, with issues with retrieval, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
-		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/legit-id", nil)
-		r.Header.Set("Content-Type", "application/json")
-		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
-		dummyRepo := &DummyClothingRepo{
-			GetByIdError: errors.New("Some Type of Error"),
-			ShouldExist:  true,
-		}
+		repo := repository.NewInMemoryClothingRepository()
+		repo.SetIssueOnGetByIdError(true)
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
+		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/"+item.Id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": item.Id})
 
 		apiHandler.GetClothingById(w, r)
 
@@ -840,7 +746,7 @@ func TestGetClothingById(t *testing.T) {
 			t.Errorf("Expeted %d got %d", http.StatusInternalServerError, resp.StatusCode)
 		}
 
-		expected := "Unable to get clothing for ID legit-id"
+		expected := fmt.Sprintf("Unable to get clothing for ID %s", item.Id)
 
 		if !strings.Contains(w.Body.String(), expected) {
 			t.Errorf("Expected %s got %s", expected, w.Body.String())
@@ -855,11 +761,9 @@ func TestGetClothingById(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
-		dummyRepo := &DummyClothingRepo{
-			ShouldExist: false,
-		}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.GetClothingById(w, r)
@@ -880,27 +784,25 @@ func TestGetClothingById(t *testing.T) {
 	t.Run("Given GET request, with no issues with retrieval and item exists, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
-		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/legit-id", nil)
-		r.Header.Set("Content-Type", "application/json")
-		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+
+		repo := repository.NewInMemoryClothingRepository()
 
 		item := domain.Clothing{
-			Id:           "legit-id",
-			ClothingType: "Jumper",
-			Description:  "This Jumper",
-			Store:        "This Store",
-			Size:         "L",
-			Brand:        "XYZ",
-			Price:        2000,
+			ClothingType: "Shirt", Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
 		}
 
-		dummyRepo := &DummyClothingRepo{
-			GetByIdItem:     &item,
-			GetByIdCalledId: "legit-id",
-			ShouldExist:     true,
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
 		}
+
+		r := httptest.NewRequestWithContext(ctx, http.MethodGet, "/clothes/"+item.Id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": item.Id})
+
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.GetClothingById(w, r)
@@ -912,7 +814,7 @@ func TestGetClothingById(t *testing.T) {
 		}
 
 		var responseBody map[string]any
-		err := json.Unmarshal(w.Body.Bytes(), &responseBody)
+		err = json.Unmarshal(w.Body.Bytes(), &responseBody)
 
 		if err != nil {
 			t.Fatalf("Failed to unmarshal response body: %v", err)
@@ -927,7 +829,7 @@ func TestGetClothingById(t *testing.T) {
 			t.Fatalf("Expected 'data' field in response, got %v", responseBody["data"])
 		}
 
-		if data["id"] != "legit-id" {
+		if data["id"] != item.Id {
 			t.Errorf("Expected returned ID legit-id, got %v", data["id"])
 		}
 	})
@@ -940,9 +842,9 @@ func TestUpdateClothing(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodTrace, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -965,9 +867,9 @@ func TestUpdateClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodPut, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -993,9 +895,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1023,9 +925,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1053,9 +955,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1094,9 +996,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1137,9 +1039,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1180,9 +1082,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": urlId})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1225,9 +1127,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": itemId})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1267,9 +1169,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1289,7 +1191,19 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given PUT request, with valid data but issue on save, should have error", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		id := "test-id"
+		repo := repository.NewInMemoryClothingRepository()
+
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
+		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		id := item.Id
 		var jsonMap map[string]any = map[string]any{
 			"id":           id,
 			"pricePence":   2000,
@@ -1309,12 +1223,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 
-		dummyRepo := &DummyClothingRepo{
-			UpdateError: fmt.Errorf("A dummy error"),
-			ShouldExist: true,
-		}
+		repo.SetIssueOnUpdateError(true)
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1354,11 +1265,9 @@ func TestUpdateClothing(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodPut, "/clothes/"+id, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
-		dummyRepo := &DummyClothingRepo{
-			ShouldExist: false,
-		}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1379,7 +1288,19 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given PUT request, with valid data and no issue on save, should have success", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		id := "test-id"
+		repo := repository.NewInMemoryClothingRepository()
+
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
+		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		id := item.Id
 		var jsonMap map[string]any = map[string]any{
 			"id":           id,
 			"pricePence":   2000,
@@ -1388,15 +1309,6 @@ func TestUpdateClothing(t *testing.T) {
 			"brand":        "A&B",
 			"store":        "Totlly Real Store",
 			"size":         "Medium",
-		}
-		sentClothing := domain.Clothing{
-			Id:           id,
-			Price:        domain.Pence(2000),
-			ClothingType: "Jumper",
-			Description:  "Red loosefit jumper",
-			Brand:        "A&B",
-			Store:        "Totlly Real Store",
-			Size:         "Medium",
 		}
 
 		body, err := json.Marshal(jsonMap)
@@ -1408,12 +1320,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
-		dummyRepo := &DummyClothingRepo{
-			UpdateReturnItem: &sentClothing,
-			ShouldExist:      true,
-		}
+
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1421,14 +1330,6 @@ func TestUpdateClothing(t *testing.T) {
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
-		}
-
-		if dummyRepo.UpdateReturnItem == nil {
-			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
-		} else {
-			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
-				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
-			}
 		}
 
 		var responseBody map[string]any
@@ -1460,7 +1361,19 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given PATCH request, with valid data and no issue on save, should have success", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		id := "test-id"
+		repo := repository.NewInMemoryClothingRepository()
+
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
+		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		id := item.Id
 		var jsonMap map[string]any = map[string]any{
 			"id":           id,
 			"pricePence":   2000,
@@ -1469,15 +1382,6 @@ func TestUpdateClothing(t *testing.T) {
 			"brand":        "A&B",
 			"store":        "Totlly Real Store",
 			"size":         "Medium",
-		}
-		sentClothing := domain.Clothing{
-			Id:           id,
-			Price:        domain.Pence(2000),
-			ClothingType: "Jumper",
-			Description:  "Red loosefit jumper",
-			Brand:        "A&B",
-			Store:        "Totlly Real Store",
-			Size:         "Medium",
 		}
 
 		body, err := json.Marshal(jsonMap)
@@ -1489,12 +1393,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
-		dummyRepo := &DummyClothingRepo{
-			UpdateReturnItem: &sentClothing,
-			ShouldExist:      true,
-		}
+
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1502,14 +1403,6 @@ func TestUpdateClothing(t *testing.T) {
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
-		}
-
-		if dummyRepo.UpdateReturnItem == nil {
-			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
-		} else {
-			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
-				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
-			}
 		}
 
 		var responseBody map[string]any
@@ -1541,7 +1434,19 @@ func TestUpdateClothing(t *testing.T) {
 	t.Run("Given POST request, with valid data and no issue on save, should have success", func(t *testing.T) {
 		w := httptest.NewRecorder()
 
-		id := "test-id"
+		repo := repository.NewInMemoryClothingRepository()
+
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
+		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		id := item.Id
 		var jsonMap map[string]any = map[string]any{
 			"id":           id,
 			"pricePence":   2000,
@@ -1550,15 +1455,6 @@ func TestUpdateClothing(t *testing.T) {
 			"brand":        "A&B",
 			"store":        "Totlly Real Store",
 			"size":         "Medium",
-		}
-		sentClothing := domain.Clothing{
-			Id:           id,
-			Price:        domain.Pence(2000),
-			ClothingType: "Jumper",
-			Description:  "Red loosefit jumper",
-			Brand:        "A&B",
-			Store:        "Totlly Real Store",
-			Size:         "Medium",
 		}
 
 		body, err := json.Marshal(jsonMap)
@@ -1570,12 +1466,9 @@ func TestUpdateClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": id})
 		expectedID := id
-		dummyRepo := &DummyClothingRepo{
-			UpdateReturnItem: &sentClothing,
-			ShouldExist:      true,
-		}
+
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.UpdateClothing(w, r)
 
@@ -1583,14 +1476,6 @@ func TestUpdateClothing(t *testing.T) {
 
 		if resp.StatusCode != http.StatusOK {
 			t.Errorf("Expected %d got %d", http.StatusOK, resp.StatusCode)
-		}
-
-		if dummyRepo.UpdateReturnItem == nil {
-			t.Error("Expected Update to be called, but UpdateReturnItem is nil")
-		} else {
-			if dummyRepo.UpdateReturnItem.ClothingType != jsonMap["clothingType"] {
-				t.Errorf("Expected updated ClothingType %v, got %v", jsonMap["clothingType"], dummyRepo.ExpectedSaveItem.ClothingType)
-			}
 		}
 
 		var responseBody map[string]any
@@ -1616,7 +1501,6 @@ func TestUpdateClothing(t *testing.T) {
 		if data["clothingType"] != jsonMap["clothingType"] {
 			t.Errorf("Expected returned clothingType %s, got %v", jsonMap["clothingType"], data["clothingType"])
 		}
-
 	})
 }
 
@@ -1627,9 +1511,9 @@ func TestDeleteClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodTrace, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.DeleteClothing(w, r)
 
@@ -1652,9 +1536,9 @@ func TestDeleteClothing(t *testing.T) {
 		r := httptest.NewRequest(http.MethodDelete, "/clothes/test-id", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.DeleteClothing(w, r)
 
@@ -1677,9 +1561,9 @@ func TestDeleteClothing(t *testing.T) {
 		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/", nil)
 		r.Header.Set("Content-Type", "application/json")
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.DeleteClothing(w, r)
 
@@ -1703,9 +1587,9 @@ func TestDeleteClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": ""})
 
-		dummyRepo := &DummyClothingRepo{}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 		apiHandler.DeleteClothing(w, r)
 
@@ -1724,17 +1608,27 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given DELETE request, with issues with delete, should return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
-		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/legit-id", nil)
-		r.Header.Set("Content-Type", "application/json")
-		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
-		dummyRepo := &DummyClothingRepo{
-			DeleteError: errors.New("Some Type of Error"),
-			ShouldExist: true,
+		repo := repository.NewInMemoryClothingRepository()
+
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
 		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/"+item.Id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": item.Id})
+
+		repo.SetIssueOnDeleteError(true)
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.DeleteClothing(w, r)
@@ -1745,7 +1639,7 @@ func TestDeleteClothing(t *testing.T) {
 			t.Errorf("Expeted %d got %d", http.StatusInternalServerError, resp.StatusCode)
 		}
 
-		expected := "Unable to delete clothing for ID legit-id"
+		expected := "Unable to delete clothing for ID " + item.Id
 
 		if !strings.Contains(w.Body.String(), expected) {
 			t.Errorf("Expected %s got %s", expected, w.Body.String())
@@ -1760,11 +1654,9 @@ func TestDeleteClothing(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
 
-		dummyRepo := &DummyClothingRepo{
-			ShouldExist: false,
-		}
+		repo := repository.NewInMemoryClothingRepository()
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.DeleteClothing(w, r)
@@ -1785,17 +1677,25 @@ func TestDeleteClothing(t *testing.T) {
 
 	t.Run("Given DELETE request, with no issues with delete, should not return error", func(t *testing.T) {
 		w := httptest.NewRecorder()
-		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
-		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/legit-id", nil)
-		r.Header.Set("Content-Type", "application/json")
-		r = mux.SetURLVars(r, map[string]string{"id": "legit-id"})
+		repo := repository.NewInMemoryClothingRepository()
 
-		dummyRepo := &DummyClothingRepo{
-			DeletedID:   "legit-id",
-			ShouldExist: true,
+		item := domain.Clothing{
+			ClothingType: "Shirt " + uuid.New().String(), Description: "Blue Shirt", Brand: "X", Store: "Shop", Price: 1000, Size: "M",
 		}
+
+		item, err := repo.Save("test-user-id", item)
+
+		if err != nil {
+			t.Fatalf("Expected no err got %v", err)
+		}
+
+		ctx := context.WithValue(context.TODO(), UserIDContextKey, "test-user-id")
+		r := httptest.NewRequestWithContext(ctx, http.MethodDelete, "/clothes/"+item.Id, nil)
+		r.Header.Set("Content-Type", "application/json")
+		r = mux.SetURLVars(r, map[string]string{"id": item.Id})
+
 		apiHandler := &API{
-			Repo: dummyRepo,
+			Repo: repo,
 		}
 
 		apiHandler.DeleteClothing(w, r)
